@@ -135,6 +135,7 @@ function publicRoom(room) {
       voted: !!p.vote
     })),
     selectedRoles: room.selectedRoles,
+    readyIds: [...(room.ready || [])],
     playerCount: room.playerCount,
     discussionSeconds: room.discussionSeconds,
     discussionEndsAt: room.discussionEndsAt || null,
@@ -205,15 +206,16 @@ function narrationFallbackMs(text) {
   // fallback so the game normally advances only after the host reports that
   // narration has finished. This fallback exists only for a disconnected or
   // broken host browser.
-  return Math.max(8000, Math.min(22000, 5000 + String(text || '').length * 140));
+  return Math.max(65000, 15000 + String(text || '').length * 250);
 }
 
 function narrateAndWait(room, text, kind, role, next) {
   if (!room || room.phase !== 'night') return;
   clearTimeout(room.narrationFallbackTimer);
   const cueId = token();
-  room.narrationCue = { cueId, next };
-  io.to(room.code).emit('narration:say', { text, kind, role, cueId, at: Date.now() });
+  const payload = { text, kind, role, cueId, at: Date.now() };
+  room.narrationCue = { cueId, next, payload };
+  io.to(room.code).emit('narration:say', payload);
   room.narrationFallbackTimer = setTimeout(() => finishNarrationCue(room, cueId), narrationFallbackMs(text));
 }
 
@@ -328,7 +330,7 @@ function buildNightPrompt(room, player, step) {
 
 
 function rebuildPendingPrompt(room, player) {
-  if (!room || room.phase !== 'night' || !room.pendingActors?.has(player.id) || room.awaitingAck?.has(player.id)) return null;
+  if (!room || room.phase !== 'night' || !room.actionWindowOpen || !room.pendingActors?.has(player.id) || room.awaitingAck?.has(player.id)) return null;
   if (room.activeNightRole === 'doppelganger' && player.nightState?.stage === 'followup') {
     const copiedRole = player.nightState.copiedRole || player.initialCard?.doppelRole;
     const prompt = genericActionPrompt(room, player, copiedRole, 'doppelganger');
@@ -374,6 +376,7 @@ function actorDone(room, playerId) {
 
 function openActionWindow(room, step, actors) {
   if (!room || room.phase !== 'night' || room.activeNightRole !== step) return;
+  room.actionWindowOpen = true;
   room.minimumActionElapsed = false;
   room.actionWindowStartedAt = Date.now();
 
@@ -402,6 +405,7 @@ function startNextNightStep(room) {
   const step = steps[room.nightIndex];
   const actors = activeNightActors(room, step);
   room.activeNightRole = step;
+  room.actionWindowOpen = false;
   room.pendingActors = new Set(actors.map(p => p.id));
   room.awaitingAck = new Set();
   room.finishingNightStep = false;
@@ -410,7 +414,10 @@ function startNextNightStep(room) {
 
   // The selected role is always announced even when every copy of that role is
   // in the center, preventing narration timing from revealing center cards.
-  narrateAndWait(room, NARRATION[step].start, 'role-start', step, () => openActionWindow(room, step, actors));
+  const text = step === 'werewolf' && room.loneWolfCenter
+    ? NARRATION[step].start + ' 혼자 깨어난 늑대인간은 원한다면 가운데 카드 한 장을 확인하세요.'
+    : NARRATION[step].start;
+  narrateAndWait(room, text, 'role-start', step, () => openActionWindow(room, step, actors));
 }
 
 function beginDiscussion(room) {
@@ -430,7 +437,9 @@ function beginDiscussion(room) {
 }
 
 function beginVoting(room) {
-  if (!room || !['discussion', 'voting'].includes(room.phase)) return;
+  if (!room || room.phase !== 'discussion') return;
+  clearTimeout(room.discussionTimer);
+  room.discussionTimer = null;
   room.phase = 'voting';
   room.discussionEndsAt = null;
   room.players.forEach(p => { p.vote = null; });
@@ -570,6 +579,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
 
 io.on('connection', socket => {
   socket.on('room:create', ({ name }, cb) => {
+    if (getRoomOf(socket)) return cb?.({ ok: false, error: '현재 방을 먼저 나가주세요.' });
     const code = code4();
     const player = { id: socket.id, name: sanitizeName(name), connected: true, vote: null, resumeToken: token() };
     const room = {
@@ -595,6 +605,7 @@ io.on('connection', socket => {
   });
 
   socket.on('room:join', ({ code, name }, cb) => {
+    if (getRoomOf(socket)) return cb?.({ ok: false, error: '현재 방을 먼저 나가주세요.' });
     code = String(code || '').toUpperCase().trim();
     const room = rooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
@@ -632,6 +643,7 @@ io.on('connection', socket => {
       room.players.forEach(x => { if (x.vote === oldId) x.vote = newId; });
       if (Array.isArray(room.killedIds)) room.killedIds = room.killedIds.map(id => id === oldId ? newId : id);
       if (room.lastReveal) {
+        room.lastReveal.winnerIds = room.lastReveal.winnerIds.map(id => id === oldId ? newId : id);
         room.lastReveal.killedIds = room.lastReveal.killedIds.map(id => id === oldId ? newId : id);
         room.lastReveal.players.forEach(x => {
           if (x.id === oldId) x.id = newId;
@@ -651,15 +663,13 @@ io.on('connection', socket => {
     else if (room.phase === 'night') {
       if (room.awaitingAck?.has(newId) && p.pendingReveal) {
         io.to(newId).emit('night:reveal', p.pendingReveal);
-      } else if (room.pendingActors?.has(newId)) {
-        if (room.activeNightRole === 'doppelganger' && p.nightState?.currentPrompt) {
-          io.to(newId).emit('night:prompt', p.nightState.currentPrompt);
-        } else if (room.activeNightRole === 'doppelganger' && p.nightState?.nextPrompt) {
-          io.to(newId).emit('night:prompt', p.nightState.nextPrompt);
-        } else {
-          io.to(newId).emit('night:prompt', buildNightPrompt(room, p, room.activeNightRole));
-        }
+      } else if (room.actionWindowOpen && room.pendingActors?.has(newId)) {
+        const prompt = rebuildPendingPrompt(room, p);
+        if (prompt) io.to(newId).emit('night:prompt', prompt);
       } else io.to(newId).emit('night:waiting', { message: '밤이 진행 중입니다. 눈을 감고 기다려주세요.' });
+      if (room.hostId === newId && room.narrationCue?.payload) {
+        io.to(newId).emit('narration:say', room.narrationCue.payload);
+      }
     } else if (room.phase === 'discussion') io.to(newId).emit('discussion:start', { endsAt: room.discussionEndsAt });
     else if (room.phase === 'voting') io.to(newId).emit('voting:start');
     else if (room.phase === 'result' && room.lastReveal) io.to(newId).emit('game:result', room.lastReveal);
@@ -761,7 +771,7 @@ io.on('connection', socket => {
     const room = getRoomOf(socket);
     if (!room || room.phase !== 'roleReveal') return;
     room.ready.add(socket.id);
-    if (room.ready.size !== room.players.length) return;
+    if (room.ready.size !== room.players.length) { emitRoom(room); return; }
 
     room.phase = 'night';
     room.nightIndex = 0;
@@ -785,7 +795,7 @@ io.on('connection', socket => {
 
   socket.on('night:action', (payload = {}, cb) => {
     const room = getRoomOf(socket);
-    if (!room || room.phase !== 'night' || !room.pendingActors.has(socket.id) || room.awaitingAck.has(socket.id)) {
+    if (!room || room.phase !== 'night' || !room.actionWindowOpen || !room.pendingActors.has(socket.id) || room.awaitingAck.has(socket.id)) {
       return cb?.({ ok: false, error: '현재 행동할 차례가 아닙니다.' });
     }
     const player = room.players.find(p => p.id === socket.id);
@@ -888,7 +898,7 @@ io.on('connection', socket => {
 
   socket.on('game:restart', () => {
     const room = getRoomOf(socket);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || room.hostId !== socket.id || room.phase !== 'result') return;
     clearNightTimers(room);
     clearTimeout(room.discussionTimer);
     room.phase = 'lobby';
@@ -924,7 +934,7 @@ io.on('connection', socket => {
       setTimeout(() => {
         const r = rooms.get(room.code);
         const stale = r?.players.find(x => x.resumeToken === p.resumeToken);
-        if (!r || !stale || stale.connected || Date.now() - (stale.disconnectedAt || 0) < 29000) return;
+        if (!r || r.phase !== 'lobby' || !stale || stale.connected || Date.now() - (stale.disconnectedAt || 0) < 29000) return;
         const oldId = stale.id;
         r.players = r.players.filter(x => x.resumeToken !== stale.resumeToken);
         if (r.hostId === oldId && r.players[0]) r.hostId = r.players[0].id;

@@ -22,6 +22,7 @@ let state = {
   myId:null,
   role:null,
   nightPrompt:null,
+  nightReveal:null,
   result:null,
   selected:[],
   voted:null,
@@ -60,11 +61,10 @@ function topbar(){return state.room?`<div class="topbar"><span class="badge">�
 function ensureNarrationDefault(){
   if(isHost()){
     state.narrationEnabled = true;
-    localStorage.setItem('mw_narration','1');
     return;
   }
   if(state.narrationEnabled !== null) return;
-  const saved=localStorage.getItem('mw_narration');
+  const saved=localStorage.getItem('mw_guest_narration');
   state.narrationEnabled = saved === '1';
 }
 function setNarrationEnabled(on){
@@ -73,7 +73,7 @@ function setNarrationEnabled(on){
     return toast('방장 폰은 밤 진행 동기화를 위해 나레이션을 켜둡니다.');
   }
   state.narrationEnabled=!!on;
-  localStorage.setItem('mw_narration',state.narrationEnabled?'1':'0');
+  localStorage.setItem('mw_guest_narration',state.narrationEnabled?'1':'0');
   if(!state.narrationEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 function koreanVoice(){
@@ -96,8 +96,9 @@ function speakNarration(text,{test=false}={}){
     const v=koreanVoice();if(v)u.voice=v;
     let done=false;
     const finish=()=>{if(done)return;done=true;clearTimeout(fallback);resolve();};
-    const fallback=setTimeout(finish,estimatedSpeechMs(text)+3000);
+    const fallback=setTimeout(()=>{window.speechSynthesis.cancel();finish();},60000);
     u.onend=finish;u.onerror=finish;
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   });
 }
@@ -173,7 +174,7 @@ function renderLobby(){
     if(!res?.ok)return toast(res?.error||'방을 나갈 수 없습니다.');
     localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
     releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
-    state.room=null;state.role=null;state.nightPrompt=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
+    state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
     renderHome();
   });
   document.getElementById('narrationToggle').onclick=()=>{setNarrationEnabled(!state.narrationEnabled);renderLobby();};
@@ -200,7 +201,9 @@ function renderRoleReveal(){
   if(!state.role)return renderWaiting('역할을 배분하고 있습니다…');
   ensureNarrationDefault();
   app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">당신의 시작 카드</div><div class="role-card"><div class="bigemoji">${state.role.emoji}</div><div class="rolename">${state.role.name}</div><div class="team">${roleTeamText(state.role)}</div></div><div class="role-desc">${esc(ROLE_INFO[state.role.role]?.desc||'')}</div><div class="hint center">확인했으면 휴대폰을 가리고 준비를 누르세요.<br>${isHost()?'🔊 방장 폰이 공용 나레이션과 밤 순서를 동기화합니다.':state.narrationEnabled?'🔊 이 폰에서도 보조 나레이션이 재생됩니다.':'🔇 이 폰은 보조 나레이션을 재생하지 않습니다.'}</div><button id="ready" class="btn">확인 완료 · 밤 시작 준비</button></div>`);
-  document.getElementById('ready').onclick=e=>{primeNarration();e.target.disabled=true;e.target.textContent='다른 사람 기다리는 중…';socket.emit('role:ready');};
+  const ready=document.getElementById('ready');
+  if(state.room.readyIds?.includes(state.myId)){ready.disabled=true;ready.textContent='다른 사람 기다리는 중…';}
+  ready.onclick=e=>{primeNarration();e.target.disabled=true;e.target.textContent='다른 사람 기다리는 중…';socket.emit('role:ready');};
 }
 function renderWaiting(msg='밤이 진행 중입니다…'){
   app.innerHTML=shell(`${topbar()}<div class="waiting"><div class="spinner">🌙</div><h2>${esc(msg)}</h2><div class="hint">눈을 감고 다른 사람 화면을 보지 마세요.</div></div>`);
@@ -308,6 +311,7 @@ function submitNight(p,skip){
   const type=actionRole==='seer'?state.seerMode:null;
   socket.emit('night:action',{type,targets,centerIndexes,skip:!!skip},res=>{
     if(!res?.ok){if(btn)btn.disabled=false;return toast(res?.error||'선택을 확인하세요.');}
+    state.nightPrompt=null;
     if(res.requiresAck || res.seen?.length || res.extraText){
       renderNightReveal(res);
     } else {
@@ -316,12 +320,15 @@ function submitNight(p,skip){
   });
 }
 function renderNightReveal(payload){
+  state.nightReveal=payload;
   const cards=(payload.seen||[]).map(x=>`<div class="seen-card"><div class="seen-emoji">${x.emoji}</div><div>${esc(x.name)}</div></div>`).join('');
   app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">확인 결과</div>${cards?`<div class="seen-grid">${cards}</div>`:''}${payload.extraText?`<div class="result-banner">${esc(payload.extraText)}</div>`:''}<div class="hint center">이 정보는 본인만 확인하세요.</div><button id="ackReveal" class="btn">${payload.nextPrompt?'복사한 역할 행동하기':'확인 완료 · 눈 감기'}</button></div>`);
-  document.getElementById('ackReveal').onclick=()=>{socket.emit('night:ack');renderWaiting('밤이 계속 진행 중입니다…');};
+  document.getElementById('ackReveal').onclick=()=>{state.nightReveal=null;state.nightPrompt=null;renderWaiting('밤이 계속 진행 중입니다…');socket.emit('night:ack');};
 }
 
 function renderDiscussion(){
+  clearInterval(timerInt);
+  releaseHostWakeLock();
   const room=state.room;
   const rc=countRoles(room.selectedRoles||[]);
   const roleSummary=Object.entries(ROLE_INFO).filter(([k])=>rc[k]).map(([k,r])=>`<span class="role-token">${r.emoji} ${r.name}${rc[k]>1?` ×${rc[k]}`:''}</span>`).join('');
@@ -362,7 +369,7 @@ function render(){
   switch(state.room.phase){
     case 'lobby':return renderLobby();
     case 'roleReveal':return renderRoleReveal();
-    case 'night':return state.nightPrompt?renderNight():renderWaiting();
+    case 'night':return state.nightReveal?renderNightReveal(state.nightReveal):state.nightPrompt?renderNight():renderWaiting();
     case 'discussion':return renderDiscussion();
     case 'voting':return renderVoting();
     case 'result':return renderResult();
@@ -377,16 +384,22 @@ socket.on('narration:say',payload=>{
     speakNarration(payload?.text||'');
   }
 });
-socket.on('room:update',room=>{state.room=room;ensureNarrationDefault();if(room.phase!=='night')state.nightPrompt=null;render();});
-socket.on('role:reveal',role=>{state.role=role;state.nightPrompt=null;state.result=null;state.voted=null;render();});
-socket.on('night:waiting',({message})=>{state.nightPrompt=null;renderWaiting(message);});
-socket.on('night:prompt',prompt=>{state.nightPrompt=prompt;renderNight();});
+socket.on('room:update',room=>{
+  const wasNight=state.room?.phase==='night';
+  state.room=room;ensureNarrationDefault();
+  if(room.phase!=='night'){state.nightPrompt=null;state.nightReveal=null;}
+  if(wasNight&&room.phase==='night'&&(state.nightPrompt||state.nightReveal))return;
+  render();
+});
+socket.on('role:reveal',role=>{state.role=role;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.voted=null;render();});
+socket.on('night:waiting',({message})=>{state.nightPrompt=null;state.nightReveal=null;renderWaiting(message);});
+socket.on('night:prompt',prompt=>{state.nightReveal=null;state.nightPrompt=prompt;renderNight();});
 socket.on('night:reveal',payload=>{state.nightPrompt=null;renderNightReveal(payload);});
-socket.on('night:done',()=>{});
+socket.on('night:done',()=>{state.nightPrompt=null;state.nightReveal=null;});
 socket.on('discussion:start',()=>{state.nightPrompt=null;});
 socket.on('voting:start',()=>{state.voted=null;});
 socket.on('game:result',r=>{state.result=r;renderResult();});
-socket.on('game:reset',()=>{releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();state.role=null;state.result=null;state.nightPrompt=null;state.voted=null;});
+socket.on('game:reset',()=>{releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();state.role=null;state.result=null;state.nightPrompt=null;state.nightReveal=null;state.voted=null;});
 socket.on('connect',()=>{
   state.myId=socket.id;
   const code=localStorage.getItem('mw_room'),resumeToken=localStorage.getItem('mw_token');
