@@ -247,7 +247,7 @@ window.STAGEON_DEFAULT_DATA = {
 })();
 
 </script><script>
-(function(){
+document.addEventListener('DOMContentLoaded', function(){
   'use strict';
   const cms=window.StageOnCMS;
   const routeNames=['overview','studios','supports','works','contact'];
@@ -337,7 +337,7 @@ window.STAGEON_DEFAULT_DATA = {
     window.addEventListener('message',e=>{if(e.source!==window.parent||e.data?.type!=='stageon-preview')return;data=cms.mergeData(e.data.content);render();});
     window.parent.postMessage({type:'stageon-preview-ready'},'*');
   }
-})();
+});
 
 </script></head>
 <body>
