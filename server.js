@@ -135,6 +135,7 @@ function publicRoom(room) {
       voted: !!p.vote
     })),
     selectedRoles: room.selectedRoles,
+    playerCount: room.playerCount,
     discussionSeconds: room.discussionSeconds,
     discussionEndsAt: room.discussionEndsAt || null,
     loneWolfCenter: !!room.loneWolfCenter,
@@ -576,6 +577,7 @@ io.on('connection', socket => {
       hostId: socket.id,
       players: [player],
       phase: 'lobby',
+      playerCount: 3,
       selectedRoles: [],
       discussionSeconds: 240,
       loneWolfCenter: true,
@@ -597,12 +599,12 @@ io.on('connection', socket => {
     const room = rooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
     if (room.phase !== 'lobby') return cb?.({ ok: false, error: '이미 게임이 시작된 방입니다.' });
-    if (room.players.length >= 10) return cb?.({ ok: false, error: '최대 10명까지 가능합니다.' });
+    if (room.players.length >= room.playerCount) return cb?.({ ok: false, error: '설정한 인원이 모두 입장했습니다. 방장에게 인원수를 늘려 달라고 하세요.' });
     const player = { id: socket.id, name: sanitizeName(name), connected: true, vote: null, resumeToken: token() };
     room.players.push(player);
     socket.join(code);
     socket.data.roomCode = code;
-    if (room.selectedRoles.length !== room.players.length + 3) room.selectedRoles = defaultRoles(room.players.length);
+
     emitRoom(room);
     cb?.({ ok: true, code, playerId: socket.id, resumeToken: player.resumeToken });
   });
@@ -665,10 +667,34 @@ io.on('connection', socket => {
     cb?.({ ok: true, playerId: newId, room: publicRoom(room) });
   });
 
+  socket.on('room:leave', (_, cb) => {
+    const room = getRoomOf(socket);
+    if (!room || room.phase !== 'lobby') return cb?.({ ok: false, error: '대기방에서만 나갈 수 있습니다.' });
+    room.players = room.players.filter(p => p.id !== socket.id);
+    socket.leave(room.code);
+    socket.data.roomCode = null;
+    if (!room.players.length) rooms.delete(room.code);
+    else {
+      if (room.hostId === socket.id) room.hostId = room.players.find(p => p.connected)?.id || room.players[0].id;
+      emitRoom(room);
+    }
+    cb?.({ ok: true });
+  });
+
+  socket.on('room:setPlayerCount', ({ count }, cb) => {
+    const room = getRoomOf(socket);
+    if (!room || room.hostId !== socket.id || room.phase !== 'lobby') return cb?.({ ok: false, error: '방장만 인원수를 변경할 수 있습니다.' });
+    if (!Number.isInteger(count) || count < 3 || count > 10 || count < room.players.length) return cb?.({ ok: false, error: '현재 참가자 수 이상으로 3~10명을 선택하세요.' });
+    room.playerCount = count;
+    room.selectedRoles = room.selectedRoles.slice(0, count + 3);
+    emitRoom(room);
+    cb?.({ ok: true });
+  });
+
   socket.on('room:setRoles', ({ roles }, cb) => {
     const room = getRoomOf(socket);
     if (!room || room.hostId !== socket.id || room.phase !== 'lobby') return cb?.({ ok: false, error: '방장만 역할을 변경할 수 있습니다.' });
-    const need = room.players.length + 3;
+    const need = room.playerCount + 3;
     if (!Array.isArray(roles) || roles.length > need) return cb?.({ ok: false, error: `역할은 최대 ${need}장까지 선택할 수 있습니다.` });
     const counts = {};
     for (const role of roles) {
@@ -699,6 +725,8 @@ io.on('connection', socket => {
   socket.on('game:start', (_, cb) => {
     const room = getRoomOf(socket);
     if (!room || room.hostId !== socket.id) return cb?.({ ok: false, error: '방장만 시작할 수 있습니다.' });
+    if (room.phase !== 'lobby') return cb?.({ ok: false, error: '이미 게임이 시작됐습니다.' });
+    if (room.players.length !== room.playerCount || room.players.some(p => !p.connected)) return cb?.({ ok: false, error: `참가자 ${room.playerCount}명이 모두 접속해야 시작할 수 있습니다.` });
     const valid = validateRoleSelection(room.selectedRoles, room.players.length);
     if (!valid.ok) return cb?.(valid);
 
@@ -902,7 +930,7 @@ io.on('connection', socket => {
         if (r.hostId === oldId && r.players[0]) r.hostId = r.players[0].id;
         if (r.players.length === 0) rooms.delete(r.code);
         else {
-          r.selectedRoles = defaultRoles(r.players.length);
+
           emitRoom(r);
         }
       }, 30000);
