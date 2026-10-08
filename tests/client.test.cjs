@@ -31,6 +31,14 @@ async function run(){
  const missing=ui({speech:false});missing.run("state.myId='me'");missing.fire('room:update',room);missing.fire('narration:say',{text:'모두 눈을 감아 주세요.',cueId:'fallback'});await missing.advance(15000);assert.equal(missing.sent.at(-1).data.cueId,'fallback');tests++;
  const stalled=ui({duration:null});stalled.run("state.myId='me'");stalled.fire('room:update',room);stalled.fire('narration:say',{text:'눈을 감으세요.',cueId:'stalled'});await stalled.advance(59000);assert(!stalled.sent.some(x=>x.event==='narration:done'));await stalled.advance(1000);assert.equal(stalled.sent.at(-1).data.cueId,'stalled');tests++;
  const out=ui();out.run("state.myId='me'");out.fire('room:update',{...room,phase:'lobby'});out.storage.set('mw_room','TEST');out.storage.set('mw_token','token');out.el('leave').onclick();out.sent.at(-1).cb({ok:true});assert(!out.storage.has('mw_room'));assert(!out.storage.has('mw_token'));assert(out.html().includes('방 만들기'));tests++;
- console.log(`Client/voice checks passed: ${tests} scenarios (selection/reveal persistence, ready state, hidden cards, host-only voice, delayed TTS, unsupported/stalled TTS, leave).`);
+ const resultGuest=ui();resultGuest.run("state.myId='other'");
+ resultGuest.fire('room:update',{...room,phase:'result'});
+ resultGuest.fire('game:result',{winnerText:'승리',players:[],center:[],killedIds:[],winnerIds:[]});
+ assert(resultGuest.html().includes('id="leave"'));assert(!resultGuest.html().includes('id="again"'));
+ resultGuest.el('leave').onclick();resultGuest.sent.at(-1).cb({ok:true});assert(resultGuest.html().includes('방 만들기'));tests++;
+ const setup=ui();setup.run("state.myId='me'");setup.fire('room:update',{...room,phase:'lobby',discussionSeconds:420});
+ assert(setup.html().indexOf('id="discussion"')<setup.html().indexOf('역할 구성'));assert.equal(setup.el('discussion').value,'420');
+ setup.el('discussion').onchange({target:{value:'600'}});assert.equal(setup.sent.at(-1).event,'room:setDiscussion');assert.equal(setup.sent.at(-1).data.seconds,600);tests++;
+ console.log(`Client/voice checks passed: ${tests} scenarios (selection/reveal persistence, ready state, hidden cards, host-only voice, delayed TTS, unsupported/stalled TTS, result leave, pregame time).`);
 }
 run().catch(e=>{console.error(e);process.exitCode=1});

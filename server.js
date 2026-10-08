@@ -679,7 +679,7 @@ io.on('connection', socket => {
 
   socket.on('room:leave', (_, cb) => {
     const room = getRoomOf(socket);
-    if (!room || room.phase !== 'lobby') return cb?.({ ok: false, error: '대기방에서만 나갈 수 있습니다.' });
+    if (!room || !['lobby', 'result'].includes(room.phase)) return cb?.({ ok: false, error: '대기방 또는 게임이 끝난 뒤에 나갈 수 있습니다.' });
     room.players = room.players.filter(p => p.id !== socket.id);
     socket.leave(room.code);
     socket.data.roomCode = null;

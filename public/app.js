@@ -141,6 +141,15 @@ function renderHome(){
 }
 
 function countRoles(roles){const c={};roles.forEach(r=>c[r]=(c[r]||0)+1);return c}
+function leaveRoom(){
+  socket.emit('room:leave',{},res=>{
+    if(!res?.ok)return toast(res?.error||'방을 나갈 수 없습니다.');
+    localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
+    releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
+    state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
+    renderHome();
+  });
+}
 function renderLobby(){
   clearInterval(timerInt);
   ensureNarrationDefault();
@@ -157,6 +166,8 @@ function renderLobby(){
     <div class="card"><h2>참가 인원</h2>
       ${isHost()?`<select id="playerCount" class="input">${Array.from({length:8},(_,i)=>i+3).map(n=>`<option value="${n}" ${n<room.players.length?'disabled':''}>${n}명</option>`).join('')}</select>`:`<div>${room.playerCount}명</div>`}
       <div class="hint">현재 ${room.players.length} / ${room.playerCount}명 입장 · 모두 접속하면 시작할 수 있습니다.<br>역할은 참가자 ${room.playerCount}장 + 가운데 3장 = 총 ${need}장을 선택하세요.</div>
+      <div class="section-title">토론 시간</div>
+      ${isHost()?`<select id="discussion" class="input" aria-label="토론 시간">${[1,2,3,4,5,7,10].map(m=>`<option value="${m*60}">${m}분</option>`).join('')}</select>`:`<div>${Math.round((room.discussionSeconds||240)/60)}분 · 방장이 설정</div>`}
     </div><div class="card"><h2>역할 구성</h2><div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
       <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도 또는 말썽쟁이와 함께 사용하는 공식 구성을 따릅니다.</div>
       <div class="section-title">밤 나레이션</div>
@@ -165,18 +176,11 @@ function renderLobby(){
       ${isHost()?`
         <div class="section-title">공식 선택 규칙</div>
         <label class="option-line"><input id="loneWolf" type="checkbox" ${room.loneWolfCenter?'checked':''}> 외로운 늑대가 가운데 카드 1장을 볼 수 있게 하기</label>
-        <div class="section-title">토론 시간</div><select id="discussion" class="input"><option value="180">3분</option><option value="240">4분</option><option value="300">5분</option><option value="420">7분</option></select>
         <button id="start" class="btn" ${selected!==need||room.players.length!==room.playerCount||room.players.some(p=>!p.connected)?'disabled':''}>게임 시작</button>
       `:`<div class="hint center">방장이 역할을 정하고 있습니다.</div>`}
     </div>`);
 
-  document.getElementById('leave').onclick=()=>socket.emit('room:leave',{},res=>{
-    if(!res?.ok)return toast(res?.error||'방을 나갈 수 없습니다.');
-    localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
-    releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
-    state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
-    renderHome();
-  });
+  document.getElementById('leave').onclick=leaveRoom;
   document.getElementById('narrationToggle').onclick=()=>{setNarrationEnabled(!state.narrationEnabled);renderLobby();};
   document.getElementById('narrationTest').onclick=()=>{setNarrationEnabled(true);primeNarration();speakNarration('나레이션 테스트입니다. 밤에는 자신의 역할이 호명될 때만 눈을 뜨세요.',{test:true});renderLobby();};
   if(isHost()){
@@ -360,7 +364,8 @@ function renderResult(){
   if('speechSynthesis' in window)window.speechSynthesis.cancel();
   const r=state.result;if(!r)return;
   const byId=new Map(r.players.map(p=>[p.id,p.name]));
-  app.innerHTML=shell(`${topbar()}<div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>`);
+  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>`);
+  document.getElementById('leave').onclick=leaveRoom;
   if(isHost())document.getElementById('again').onclick=()=>socket.emit('game:restart');
 }
 
