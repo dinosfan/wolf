@@ -119,6 +119,24 @@ function defaultRoles(n) {
   return presets[n] ? [...presets[n]] : [];
 }
 
+
+function presetRoles(n, mode) {
+  if (mode === 'chaos') {
+    const pool=['werewolf','werewolf','doppelganger','robber','troublemaker','drunk','seer','minion','insomniac','hunter','tanner','villager','villager'];
+    return pool.slice(0,n+3);
+  }
+  const roles=['werewolf','werewolf','seer','robber','troublemaker','villager'];
+  if(n>=6) roles.push('mason','mason');
+  for(const role of ['villager','villager','hunter','drunk','insomniac','minion']){
+    if(roles.length>=n+3) break;
+    roles.push(role);
+  }
+  return roles;
+}
+function recordSwap(room,player,role,a,b,cardA,cardB){
+  (room.actionHistory ||= []).push({kind:'swap',actor:player.name,role:ROLE_INFO[role].name,a,b,cardA:finalRoleView(cardA),cardB:finalRoleView(cardB)});
+}
+
 function sanitizeName(name) {
   return String(name || '').trim().slice(0, 12) || '익명';
 }
@@ -521,6 +539,7 @@ function resolveGame(room) {
       final: finalRoleView(room.currentCards.get(p.id)),
       vote: p.vote
     })),
+    history: room.actionHistory || [],
     center: room.centerCards.map(finalRoleView)
   };
   room.lastReveal = reveal;
@@ -594,6 +613,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
     if (!tid || tid === player.id || !room.currentCards.has(tid)) throw new Error('다른 플레이어 1명을 선택하거나 행동을 건너뛰세요.');
     const mine = room.currentCards.get(player.id);
     const theirs = room.currentCards.get(tid);
+    recordSwap(room,player,actionRole,player.name,room.players.find(p=>p.id===tid).name,mine,theirs);
     room.currentCards.set(player.id, theirs);
     room.currentCards.set(tid, mine);
     player.nightState = { stage: 'done' };
@@ -605,6 +625,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
     if (uniq.length !== 2) throw new Error('다른 플레이어 2명을 선택하거나 행동을 건너뛰세요.');
     const a = room.currentCards.get(uniq[0]);
     const b = room.currentCards.get(uniq[1]);
+    recordSwap(room,player,actionRole,room.players.find(p=>p.id===uniq[0]).name,room.players.find(p=>p.id===uniq[1]).name,a,b);
     room.currentCards.set(uniq[0], b);
     room.currentCards.set(uniq[1], a);
     player.nightState = { stage: 'done' };
@@ -616,6 +637,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
     if (![0,1,2].includes(idx)) throw new Error('가운데 카드 1장을 선택하세요.');
     const mine = room.currentCards.get(player.id);
     const center = room.centerCards[idx];
+    recordSwap(room,player,actionRole,player.name,`가운데 ${idx+1}`,mine,center);
     room.currentCards.set(player.id, center);
     room.centerCards[idx] = mine;
     player.nightState = { stage: 'done' };
@@ -648,6 +670,7 @@ function handleNightAction(room, playerId, payload = {}, cb) {
           const targetCard = room.currentCards.get(tid);
           const copiedRole = effectiveRole(targetCard);
           player.initialCard.doppelRole = copiedRole;
+          (room.actionHistory ||= []).push({kind:'copy',actor:player.name,target:room.players.find(p=>p.id===tid).name,role:ROLE_INFO[copiedRole].name});
 
           const seen = [cardFaceView(targetCard)];
           const copiedInfo = ROLE_INFO[copiedRole];
@@ -867,6 +890,16 @@ io.on('connection', socket => {
     cb?.({ ok: true });
   });
 
+  socket.on('room:setPreset', ({ mode } = {}, cb) => {
+    const room=getRoomOf(socket);
+    if(!room || room.hostId!==socket.id || room.phase!=='lobby') return cb?.({ok:false,error:'대기방에서 방장만 구성을 변경할 수 있습니다.'});
+    if(!['beginner','chaos'].includes(mode)) return cb?.({ok:false,error:'알 수 없는 구성입니다.'});
+    const roles=presetRoles(room.playerCount,mode);
+    const valid=validateRoleSelection(roles,room.playerCount);
+    if(!valid.ok) return cb?.(valid);
+    room.selectedRoles=roles;emitRoom(room);cb?.({ok:true});
+  });
+
   socket.on('room:setPlayerCount', ({ count }, cb) => {
     const room = getRoomOf(socket);
     if (!room || room.hostId !== socket.id || room.phase !== 'lobby') return cb?.({ ok: false, error: '방장만 인원수를 변경할 수 있습니다.' });
@@ -917,6 +950,7 @@ io.on('connection', socket => {
     if (!valid.ok) return cb?.(valid);
 
     clearNightTimers(room);
+    room.actionHistory = [];
     const deck = shuffle(room.selectedRoles.map((r, i) => makeCard(r, `c${Date.now()}_${i}`)));
     room.currentCards = new Map();
     room.players.forEach((p, i) => {
@@ -994,6 +1028,7 @@ io.on('connection', socket => {
     });
     room.currentCards = new Map();
     room.centerCards = [];
+    room.actionHistory = [];
     room.activeNightRole = null;
     room.finishingNightStep = false;
     room.winnerText = null;

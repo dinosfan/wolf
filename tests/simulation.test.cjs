@@ -75,6 +75,7 @@ function play(deck,copyRole=null,index=0){
   else h.advance(11000);
  }
  assert.equal(room.phase,'discussion');
+ assert(!cs[0].take('room:update').history,'History stays private before result');
  for(const p of room.players){const actual=room.currentCards.get(p.id),expected=ref.get(p.id);assert.equal(actual.id,expected.id);assert.equal(actual.doppelRole,expected.doppelRole)}
  for(let i=0;i<3;i++){assert.equal(room.centerCards[i].id,center[i].id);assert.equal(room.centerCards[i].doppelRole,center[i].doppelRole)}
  const cues=h.events.filter(e=>e.event==='narration:say'&&e.target===code).map(e=>e.data);
@@ -89,6 +90,16 @@ function play(deck,copyRole=null,index=0){
  for(let i=1;i<n;i++)assert(cs[i].call('vote:cast',{targetId:pick(cs.filter(c=>c!==cs[i])).id}).ok);
  assert.equal(room.phase,'result');const out=oracle(room.players,ref),reveal=cs[0].take('game:result');
  assert.deepEqual([...reveal.killedIds].sort(),out.dead);assert.deepEqual([...reveal.winningTeams].sort(),out.teams);assert.deepEqual([...reveal.winnerIds].sort(),out.winners);
+ const moved=new Map();
+ for(const entry of reveal.history){
+  if(entry.kind==='swap'){
+    if(moved.has(entry.a))assert.equal(moved.get(entry.a),entry.cardA.id);
+    if(moved.has(entry.b))assert.equal(moved.get(entry.b),entry.cardB.id);
+    moved.set(entry.a,entry.cardB.id);moved.set(entry.b,entry.cardA.id);
+  }
+ }
+ for(const p of reveal.players)if(moved.has(p.name))assert.equal(moved.get(p.name),p.final.id);
+ reveal.center.forEach((card,i)=>{if(moved.has('가운데 '+(i+1)))assert.equal(moved.get('가운데 '+(i+1)),card.id)});
  coverage.teams[out.teams.join('+')||'none']=(coverage.teams[out.teams.join('+')||'none']||0)+1;
  const win=room.lastReveal.winnerIds.includes(cs[0].id);const newHost=reconnect(0);assert.equal(room.lastReveal.winnerIds.includes(newHost.id),win,'Victory badge survives reconnect');
  const selection=[...room.selectedRoles];cs[0].call('game:restart');assert.equal(room.phase,'lobby');assert.equal(room.currentCards.size,0);assert(!room.lastReveal);assert.deepEqual([...room.selectedRoles],selection);

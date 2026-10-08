@@ -154,6 +154,8 @@ function renderHome(){
     });
   };
   document.getElementById('name').value=localStorage.getItem('mw_name')||'';
+  const inviteMatch=window.location?.search?.match(/[?&]room=([A-Z0-9]{4})(?:&|$)/i);
+  if(inviteMatch)document.getElementById('code').value=inviteMatch[1].toUpperCase();
   document.getElementById('code').addEventListener('input',e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''));
 }
 
@@ -177,7 +179,7 @@ function renderLobby(){
   }).join('');
 
   app.innerHTML=shell(`${topbar()}
-    <div class="card"><button id="leave" class="btn secondary">← 나가기 · 처음으로</button><h2>대기방</h2><div class="codebox"><div class="muted">방 코드</div><div class="code">${room.code}</div><div class="host-note">친구들에게 이 코드만 알려주세요.</div></div>
+    <div class="card"><button id="leave" class="btn secondary">← 나가기 · 처음으로</button><h2>대기방</h2><div class="codebox"><div class="muted">방 코드</div><div class="code">${room.code}</div><div class="host-note">친구들에게 이 코드만 알려주세요.</div><button id="invite" class="btn secondary">🔗 친구 초대 · 링크 / QR</button></div>
       ${room.players.map(p=>`<div class="player"><div><span class="dot ${p.connected?'':'off'}"></span><span class="player-name">${esc(p.name)}</span>${p.bot?' <span class="badge">🤖 봇</span>':''}${p.id===room.hostId?' <span class="badge">방장</span>':''}</div>${isHost()&&p.bot?`<button class="mini-btn" data-remove-bot="${p.id}" aria-label="${esc(p.name)} 삭제">삭제</button>`:''}</div>`).join('')}
       ${isHost()?`<div class="row"><button id="addBot" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>🤖 봇 1명 추가</button><button id="fillBots" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>빈 자리 봇으로 채우기</button></div>`:''}
       <div class="hint">테스트용 봇은 역할 확인·밤 행동·투표를 자동으로 합니다. 행동과 투표는 무작위이며, 추리 대화는 하지 않습니다.</div>
@@ -187,7 +189,7 @@ function renderLobby(){
       <div class="hint">현재 ${room.players.length} / ${room.playerCount}명 입장 · 모두 접속하면 시작할 수 있습니다.<br>역할은 참가자 ${room.playerCount}장 + 가운데 3장 = 총 ${need}장을 선택하세요.</div>
       <div class="section-title">토론 시간</div>
       ${isHost()?`<select id="discussion" class="input" aria-label="토론 시간">${[1,2,3,4,5,7,10].map(m=>`<option value="${m*60}">${m}분</option>`).join('')}</select>`:`<div>${Math.round((room.discussionSeconds||240)/60)}분 · 방장이 설정</div>`}
-    </div><div class="card"><h2>역할 구성</h2><div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
+    </div><div class="card"><h2>역할 구성</h2>${isHost()?'<div class="row"><button id="presetBeginner" class="btn secondary">🌱 초보 추천</button><button id="presetChaos" class="btn secondary">🌀 혼돈 추천</button></div><div class="hint">선택한 인원에 맞춰 전체 구성을 바꿉니다. 초보는 기본 추리 중심, 혼돈은 도플갱어·카드 교환 중심입니다.</div>':''}<div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
       <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도 또는 말썽쟁이와 함께 사용하는 공식 구성을 따릅니다.</div>
       <div class="section-title">밤 나레이션</div>
       <div class="hint">방장 폰의 음성이 밤 순서와 동기화됩니다. 다른 폰의 음성은 필요할 때만 보조로 켜세요.</div>
@@ -200,9 +202,12 @@ function renderLobby(){
     </div>`);
 
   document.getElementById('leave').onclick=leaveRoom;
+  document.getElementById('invite').onclick=openInvite;
   document.getElementById('narrationToggle').onclick=()=>{setNarrationEnabled(!state.narrationEnabled);renderLobby();};
   document.getElementById('narrationTest').onclick=()=>{setNarrationEnabled(true);primeNarration();speakNarration('나레이션 테스트입니다. 밤에는 자신의 역할이 호명될 때만 눈을 뜨세요.',{test:true});renderLobby();};
   if(isHost()){
+    document.getElementById('presetBeginner').onclick=()=>socket.emit('room:setPreset',{mode:'beginner'},res=>{if(!res?.ok)toast(res?.error);});
+    document.getElementById('presetChaos').onclick=()=>socket.emit('room:setPreset',{mode:'chaos'},res=>{if(!res?.ok)toast(res?.error);});
     const botRequest=(event,payload)=>socket.emit(event,payload,res=>{if(!res?.ok)toast(res?.error||'봇 설정을 변경할 수 없습니다.');});
     document.getElementById('addBot').onclick=()=>botRequest('room:addBot',{});
     document.getElementById('fillBots').onclick=()=>botRequest('room:addBot',{fill:true});
@@ -377,6 +382,27 @@ function renderVoting(){
   }
 }
 
+
+function openInvite(){
+  const link=window.location.origin+'/?room='+encodeURIComponent(state.room.code);
+  const dialog=document.getElementById('inviteDialog');
+  document.getElementById('inviteLink').value=link;
+  const qr=document.getElementById('inviteQR');qr.innerHTML='';
+  new QRCode(qr,{text:link,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
+  document.getElementById('copyInvite').onclick=async()=>{
+    try{await navigator.clipboard.writeText(link);toast('초대 링크를 복사했습니다.');}
+    catch(_){document.getElementById('inviteLink').select();toast('주소를 길게 눌러 복사해주세요.');}
+  };
+  document.getElementById('shareInvite').onclick=async()=>{
+    if(!navigator.share){document.getElementById('copyInvite').click();return;}
+    try{await navigator.share({title:'한밤의 늑대인간',text:'방 '+state.room.code+'에 들어오세요!',url:link});}catch(_){}
+  };
+  dialog.showModal();
+}
+function historyHtml(history){
+  return '<div class="card"><h2>밤 카드 이동 기록</h2><div class="hint">실제 행동 순서입니다. 각 교환 직전 카드가 어디로 이동했는지 보여줍니다.</div>'+(history.length?history.map((h,i)=>h.kind==='copy'?`<div class="reveal-row">${i+1}. ${esc(h.actor)} · 도플갱어<br>${esc(h.target)}의 ${esc(h.role)} 역할 복사</div>`:`<div class="reveal-row">${i+1}. ${esc(h.actor)} · ${esc(h.role)}<br>${esc(h.a)} → ${esc(h.b)}: ${finalRoleHtml(h.cardA)}<br>${esc(h.b)} → ${esc(h.a)}: ${finalRoleHtml(h.cardB)}</div>`).join(''):'<p class="hint">이번 밤에는 역할 복사나 카드 교환이 없었습니다.</p>')+'</div>';
+}
+
 function finalRoleHtml(f){
   if(f?.physicalRole==='doppelganger'&&f?.copiedRole)return `${f.physicalEmoji} 도플갱어 <span class="arrow">→</span> ${f.emoji} ${esc(f.name)}`;
   return `${f?.emoji||''} ${esc(f?.name||'')}`;
@@ -387,7 +413,7 @@ function renderResult(){
   if('speechSynthesis' in window)window.speechSynthesis.cancel();
   const r=state.result;if(!r)return;
   const byId=new Map(r.players.map(p=>[p.id,p.name]));
-  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>`);
+  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>${historyHtml(r.history||[])}`);
   document.getElementById('leave').onclick=leaveRoom;
   if(isHost())document.getElementById('again').onclick=()=>socket.emit('game:restart');
 }
