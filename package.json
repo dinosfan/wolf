@@ -1,0 +1,16 @@
+{
+  "name": "midnight-werewolf-mobile",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Private mobile one-night social deduction game for friends",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node tests/rules.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

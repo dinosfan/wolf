@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: midnight-werewolf-mobile
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
