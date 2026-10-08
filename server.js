@@ -141,9 +141,13 @@ function sanitizeName(name) {
   return String(name || '').trim().slice(0, 12) || '익명';
 }
 
+function fastBotGame(room){return !!room.fastBots && room.players.some(p=>p.bot) && room.players.filter(p=>!p.bot).length===1;}
+
 function publicRoom(room) {
   return {
     code: room.code,
+    fastBots: !!room.fastBots,
+    fastBotGame: fastBotGame(room),
     hostId: room.hostId,
     phase: room.phase,
     players: room.players.map(p => ({
@@ -233,6 +237,11 @@ function narrationFallbackMs(text) {
 
 function narrateAndWait(room, text, kind, role, next) {
   if (!room || room.phase !== 'night') return;
+  if(fastBotGame(room)){
+    io.to(room.code).emit('narration:say',{text,kind,role,fast:true});
+    room.nightTransitionTimer=setTimeout(()=>{if(room.phase==='night')next();},80);
+    return;
+  }
   clearTimeout(room.narrationFallbackTimer);
   const cueId = token();
   const payload = { text, kind, role, cueId, at: Date.now() };
@@ -380,7 +389,7 @@ function maybeFinishNightStep(room) {
     if (!room || room.phase !== 'night') return;
     room.nightIndex += 1;
     room.finishingNightStep = false;
-    room.nightTransitionTimer = setTimeout(() => startNextNightStep(room), 450);
+    room.nightTransitionTimer = setTimeout(() => startNextNightStep(room), fastBotGame(room)?80:450);
   });
 }
 
@@ -406,7 +415,7 @@ function scheduleBot(room, player, fn) {
     room.botTimers.delete(timer);
     player.botTimer = null;
     if (rooms.get(room.code) === room && room.players.includes(player)) fn();
-  }, 600 + Math.floor(Math.random() * 600));
+  }, fastBotGame(room)?100:600 + Math.floor(Math.random() * 600));
   player.botTimer = timer;
   room.botTimers.add(timer);
 }
@@ -454,7 +463,7 @@ function openActionWindow(room, step, actors) {
   room.minimumActionTimer = setTimeout(() => {
     room.minimumActionElapsed = true;
     maybeFinishNightStep(room);
-  }, MIN_ACTION_MS[step] || 7000);
+  }, fastBotGame(room)?100:(MIN_ACTION_MS[step] || 7000));
 
   if (actors.length === 0) maybeFinishNightStep(room);
 }
@@ -493,7 +502,7 @@ function beginDiscussion(room) {
   room.activeNightRole = null;
   room.pendingActors = new Set();
   room.awaitingAck = new Set();
-  const seconds = room.discussionSeconds || 240;
+  const seconds = fastBotGame(room)?3:(room.discussionSeconds || 240);
   room.discussionEndsAt = Date.now() + seconds * 1000;
   room.players.forEach(p => io.to(p.id).emit('discussion:start', { endsAt: room.discussionEndsAt }));
   emitRoom(room);
@@ -765,6 +774,7 @@ io.on('connection', socket => {
       selectedRoles: [],
       discussionSeconds: 240,
       loneWolfCenter: true,
+      fastBots: true,
       currentCards: new Map(),
       centerCards: [],
       nightIndex: 0,
@@ -927,6 +937,12 @@ io.on('connection', socket => {
     cb?.({ ok: true });
   });
 
+  socket.on('room:setFastBots', ({enabled} = {}, cb) => {
+    const room=getRoomOf(socket);
+    if(!room || room.hostId!==socket.id || room.phase!=='lobby') return cb?.({ok:false,error:'대기방에서 방장만 변경할 수 있습니다.'});
+    room.fastBots=!!enabled;emitRoom(room);cb?.({ok:true});
+  });
+
   socket.on('room:setDiscussion', ({ seconds }) => {
     const room = getRoomOf(socket);
     if (!room || room.hostId !== socket.id || room.phase !== 'lobby') return;
@@ -993,7 +1009,7 @@ io.on('connection', socket => {
       '밤이 되었습니다. 모두 눈을 감아 주세요. 자신의 역할이 호명될 때만 눈을 뜨고 자기 휴대폰을 확인하세요.',
       'sleep',
       null,
-      () => { room.nightTransitionTimer = setTimeout(() => startNextNightStep(room), 500); }
+      () => { room.nightTransitionTimer = setTimeout(() => startNextNightStep(room), fastBotGame(room)?80:500); }
     );
   });
 

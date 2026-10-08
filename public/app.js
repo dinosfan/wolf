@@ -182,7 +182,7 @@ function renderLobby(){
     <div class="card"><button id="leave" class="btn secondary">← 나가기 · 처음으로</button><h2>대기방</h2><div class="codebox"><div class="muted">방 코드</div><div class="code">${room.code}</div><div class="host-note">친구들에게 이 코드만 알려주세요.</div><button id="invite" class="btn secondary">🔗 친구 초대 · 링크 / QR</button></div>
       ${room.players.map(p=>`<div class="player"><div><span class="dot ${p.connected?'':'off'}"></span><span class="player-name">${esc(p.name)}</span>${p.bot?' <span class="badge">🤖 봇</span>':''}${p.id===room.hostId?' <span class="badge">방장</span>':''}</div>${isHost()&&p.bot?`<button class="mini-btn" data-remove-bot="${p.id}" aria-label="${esc(p.name)} 삭제">삭제</button>`:''}</div>`).join('')}
       ${isHost()?`<div class="row"><button id="addBot" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>🤖 봇 1명 추가</button><button id="fillBots" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>빈 자리 봇으로 채우기</button></div>`:''}
-      <div class="hint">테스트용 봇은 역할 확인·밤 행동·투표를 자동으로 합니다. 행동과 투표는 무작위이며, 추리 대화는 하지 않습니다.</div>
+      ${isHost()?`<label class="option-line"><input id="fastBots" type="checkbox" ${room.fastBots?'checked':''}> ⚡ 혼자 봇 테스트 빠른 진행</label><div class="hint">사람 1명 + 봇일 때 적용됩니다. 음성·밤 대기를 생략하고 봇은 즉시 행동합니다. 토론은 3초 후 자동 종료됩니다. 내 행동과 확인은 직접 완료해야 합니다.</div>`:''}<div class="hint">테스트용 봇은 역할 확인·밤 행동·투표를 자동으로 합니다. 행동과 투표는 무작위이며, 추리 대화는 하지 않습니다.</div>
     </div>
     <div class="card"><h2>참가 인원</h2>
       ${isHost()?`<select id="playerCount" class="input">${Array.from({length:8},(_,i)=>i+3).map(n=>`<option value="${n}" ${n<room.players.length?'disabled':''}>${n}명</option>`).join('')}</select>`:`<div>${room.playerCount}명</div>`}
@@ -206,6 +206,7 @@ function renderLobby(){
   document.getElementById('narrationToggle').onclick=()=>{setNarrationEnabled(!state.narrationEnabled);renderLobby();};
   document.getElementById('narrationTest').onclick=()=>{setNarrationEnabled(true);primeNarration();speakNarration('나레이션 테스트입니다. 밤에는 자신의 역할이 호명될 때만 눈을 뜨세요.',{test:true});renderLobby();};
   if(isHost()){
+    document.getElementById('fastBots').onchange=e=>socket.emit('room:setFastBots',{enabled:e.target.checked},res=>{if(!res?.ok)toast(res?.error);});
     document.getElementById('presetBeginner').onclick=()=>socket.emit('room:setPreset',{mode:'beginner'},res=>{if(!res?.ok)toast(res?.error);});
     document.getElementById('presetChaos').onclick=()=>socket.emit('room:setPreset',{mode:'chaos'},res=>{if(!res?.ok)toast(res?.error);});
     const botRequest=(event,payload)=>socket.emit(event,payload,res=>{if(!res?.ok)toast(res?.error||'봇 설정을 변경할 수 없습니다.');});
@@ -431,6 +432,7 @@ function render(){
 }
 
 socket.on('narration:say',payload=>{
+  if(payload?.fast){if('speechSynthesis' in window)window.speechSynthesis.cancel();return;}
   ensureNarrationDefault();
   if(isHost()){
     speakNarration(payload?.text||'').then(()=>socket.emit('narration:done',{cueId:payload?.cueId}));

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/rules.test.js && node tests/simulation.test.cjs && node tests/client.test.cjs && node tests/lobby-result.test.cjs && node tests/bots.test.cjs && node tests/presets.test.cjs"
+    "test": "node tests/rules.test.js && node tests/simulation.test.cjs && node tests/client.test.cjs && node tests/lobby-result.test.cjs && node tests/bots.test.cjs && node tests/presets.test.cjs && node tests/fast-bots.test.cjs"
   },
   "dependencies": {
     "express": "^4.21.2",

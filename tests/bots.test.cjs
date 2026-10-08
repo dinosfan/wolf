@@ -19,6 +19,7 @@ function play(seed,n,forced=null){
   assert(E.validateRoleSelection(deck,n).ok);h.setDeck(deck);host.call('room:setRoles',{roles:deck});
   h.ctx.forced=forced;h.ctx.r=room;vm.runInContext("const originalBotPayload=botNightPayload; botNightPayload = prompt => prompt.stage === 'copy' ? {targets:[prompt.others.find(p=>r.players.find(x=>x.id===p.id).initialCard.role===forced).id]} : originalBotPayload(prompt);",h.ctx);
  }
+ host.call('room:setFastBots',{enabled:false});
  assert(host.call('game:start').ok);assert.equal(room.ready.size,n-1);assert(!host.call('room:removeBot',{playerId:room.players[1].id}).ok);
  host.call('role:ready');assert.equal(room.phase,'night');let ticks=0;
  while(room.phase==='night'){
