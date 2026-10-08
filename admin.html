@@ -197,7 +197,7 @@ window.STAGEON_DEFAULT_DATA = {
 })();
 
 </script><script>
-(function(){
+document.addEventListener('DOMContentLoaded', function(){
 'use strict';
 const cms=window.StageOnCMS;
 const STORAGE_KEY='stageon-cms-draft-v3';
@@ -371,7 +371,7 @@ changeNav('overview');
 if(cms.enabled){
   cms.getPublished().then(remote=>{if(remote){published=cms.mergeData(remote);if(!localStorage.getItem(STORAGE_KEY)){data=copy(published);renderFields();updatePreview();}loadedRemote=true;}}).catch(e=>status('온라인 원본을 불러오지 못했습니다: '+e.message+' (기본 내용을 표시합니다)','warn'));
 }
-})();
+});
 
 </script>
 </head><body>
