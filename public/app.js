@@ -56,7 +56,24 @@ function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function me(){return state.room?.players.find(p=>p.id===state.myId)}
 function isHost(){return state.room?.hostId===state.myId}
 function shell(inner){return `<div class="shell">${inner}</div>`}
-function topbar(){return state.room?`<div class="topbar"><span class="badge">🌙 한밤의 늑대인간</span><span class="smallcode">${state.room.code}</span></div>`:''}
+function topbar(){return state.room?`<div class="topbar"><span class="badge">🌙 한밤의 늑대인간</span><div class="room-tools"><span class="smallcode">${state.room.code}</span><button class="info-button" data-role-guide aria-label="모든 캐릭터 능력 안내">ⓘ</button></div></div>`:''}
+
+
+function openRoleGuide(){
+  const dialog=document.getElementById('roleGuide');
+  const notes={
+    doppelganger:'복사한 역할의 승리 조건을 따릅니다. 예언자·강도·말썽쟁이·주정뱅이를 복사하면 즉시 행동하고, 늑대·석공은 해당 순서에 함께 확인합니다. 하수인은 별도로 늑대를 확인하고 불면증은 일반 불면증 뒤에 확인합니다.',
+    werewolf:'혼자 깨어난 늑대는 방의 선택 규칙이 켜져 있을 때 가운데 카드 1장을 볼 수 있습니다.',
+    minion:'플레이어 중 늑대가 있으면 늑대가 죽지 않아야 승리하며 하수인 자신은 죽어도 됩니다. 늑대가 없으면 하수인 이외의 누군가가 죽어야 승리합니다. 무두장이 승리가 우선 적용됩니다.',
+    robber:'새 역할의 승리 조건을 따르지만 그 역할의 밤 행동을 추가로 하지 않습니다.',
+    insomniac:'확인한 최종 카드의 승리 조건을 따릅니다.',
+    hunter:'사냥꾼 효과는 투표 종료 시 최종 카드가 사냥꾼인 사람에게 적용됩니다.',
+    tanner:'늑대와 함께 죽으면 마을팀과 동시에 승리할 수 있습니다.'
+  };
+  document.getElementById('roleGuideContent').innerHTML=`<p class="hint">전체 캐릭터 안내입니다. 누가 어떤 역할인지 공개하지 않습니다. 밤에는 자기 차례에만 화면을 확인하세요.</p><p class="hint">능력은 시작 역할로 행동하고, 승패는 밤이 끝난 뒤 최종 카드로 결정됩니다. 마을팀은 늑대가 죽으면 승리합니다. 플레이어 중 늑대가 없으면 아무도 죽지 않아야 승리합니다. 무두장이가 죽으면 무두장이 승리가 우선입니다.</p><p class="hint">밤 순서: 도플갱어 → 늑대인간 → 하수인 → 석공 → 예언자 → 강도 → 말썽쟁이 → 주정뱅이 → 불면증 환자</p>${Object.entries(ROLE_INFO).map(([key,r])=>`<details class="guide-role"><summary>${r.emoji} ${r.name} <span class="muted">· ${r.team}</span></summary><p>${r.desc}</p>${notes[key]?`<p>${notes[key]}</p>`:''}</details>`).join('')}`;
+  dialog.showModal();
+}
+document.addEventListener('click',e=>{if(e.target.closest?.('[data-role-guide]')) openRoleGuide();});
 
 function ensureNarrationDefault(){
   if(isHost()){
