@@ -400,8 +400,18 @@ function openInvite(){
   };
   dialog.showModal();
 }
+function historyFace(card){
+  return '<span class="history-emoji">'+esc(card?.physicalEmoji||card?.emoji||'🃏')+'</span><strong>'+esc(card?.displayName||card?.name||'카드')+'</strong>';
+}
+function historySeat(name,before,after){
+  return `<div class="history-seat"><div class="history-person">${esc(name)}</div><div class="history-before">교환 전 · ${esc(before?.displayName||before?.name||'카드')}</div><div class="history-down" aria-hidden="true">↓</div><div class="history-after">${historyFace(after)}</div><div class="history-caption">교환 후 받은 카드</div></div>`;
+}
 function historyHtml(history){
-  return '<div class="card"><h2>밤 카드 이동 기록</h2><div class="hint">실제 행동 순서입니다. 각 교환 직전 카드가 어디로 이동했는지 보여줍니다.</div>'+(history.length?history.map((h,i)=>h.kind==='copy'?`<div class="reveal-row">${i+1}. ${esc(h.actor)} · 도플갱어<br>${esc(h.target)}의 ${esc(h.role)} 역할 복사</div>`:`<div class="reveal-row">${i+1}. ${esc(h.actor)} · ${esc(h.role)}<br>${esc(h.a)} → ${esc(h.b)}: ${finalRoleHtml(h.cardA)}<br>${esc(h.b)} → ${esc(h.a)}: ${finalRoleHtml(h.cardB)}</div>`).join(''):'<p class="hint">이번 밤에는 역할 복사나 카드 교환이 없었습니다.</p>')+'</div>';
+  return '<div class="card history-panel"><h2>밤에 카드가 이렇게 바뀌었어요</h2><p class="hint">위에서 아래로 실제 행동 순서입니다. 큰 카드가 각 행동 직후 받은 카드예요.</p>'+(history.length?'<div class="history-timeline">'+history.map((h,i)=>{
+    const head=`<div class="history-head"><span class="history-number">${i+1}</span><div><strong>${esc(h.actor)}</strong><span class="history-action">${h.kind==='copy'?'🪞 도플갱어 · 역할 복사':esc(h.role)+' · 카드 교환'}</span></div></div>`;
+    if(h.kind==='copy')return `<section class="history-step">${head}<div class="history-copy"><div class="history-person">${esc(h.target)}의 역할을 복사</div><div class="history-after">${historyFace({emoji:ROLE_INFO[Object.keys(ROLE_INFO).find(k=>ROLE_INFO[k].name===h.role)]?.emoji,name:h.role})}</div><p class="history-caption">카드는 그대로 · 능력과 승리 조건만 복사</p></div></section>`;
+    return `<section class="history-step">${head}<div class="history-swap">${historySeat(h.a,h.cardA,h.cardB)}<span class="history-exchange" aria-label="서로 교환">⇄</span>${historySeat(h.b,h.cardB,h.cardA)}</div></section>`;
+  }).join('')+'</div>':'<div class="history-empty">🌙<p>이번 밤에는 카드를 바꾸거나<br>역할을 복사한 사람이 없어요.</p></div>')+'</div>';
 }
 
 function finalRoleHtml(f){
