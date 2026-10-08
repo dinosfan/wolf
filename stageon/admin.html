@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>StageON · 홈페이지 관리자</title>
+<style>
+:root{--gold:#ffbd18;--black:#181b20;--paper:#f6f7f9;--line:#dfe2e7;--muted:#68707b;--white:#fff}*{box-sizing:border-box}body{font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;margin:0;background:var(--paper);color:var(--black);letter-spacing:-.025em}button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.48;cursor:not-allowed}a{color:inherit}.layout{display:grid;grid-template-columns:242px minmax(0,1fr);min-height:100vh}.side{position:sticky;top:0;height:100vh;background:#16191d;color:white;padding:28px 17px;display:flex;flex-direction:column}.logo{font-size:23px;font-weight:950;letter-spacing:-.085em;padding:6px 12px 6px}.logo span{color:var(--gold)}.side-desc{font-size:12px;color:#9fa5ad;padding:0 12px 35px}.navbtn{width:100%;text-align:left;display:flex;align-items:center;gap:13px;color:#b8bec7;border:0;background:transparent;border-radius:10px;padding:15px;margin-bottom:6px;font-weight:750}.navbtn b{font-size:13px;font-weight:850;color:#757e89;width:24px}.navbtn.current{color:#111;background:var(--gold)}.navbtn.current b{color:#292418}.side-bottom{margin-top:auto;border-top:1px solid #444a50;padding:20px 12px 0;color:#a9aeb7;font-size:12px;line-height:1.8}.side-bottom a{color:#fff}.main{min-width:0}.toolbar{position:sticky;top:0;z-index:15;background:#fff;box-shadow:0 1px 0 var(--line);display:flex;align-items:center;justify-content:space-between;gap:15px;padding:17px 4.2%;flex-wrap:wrap}.toolbar-title{font-weight:850;font-size:15px}.toolbar-title small{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:4px}.actions{display:flex;flex-wrap:wrap;gap:8px}.btn{border:1px solid #d7dae0;background:#fff;border-radius:8px;padding:11px 15px;font-size:13px;font-weight:800;white-space:nowrap}.btn:hover{border-color:#111}.btn.primary{background:var(--gold);border-color:var(--gold)}.btn.dark{color:#fff;background:#16191d;border-color:#16191d}.btn.danger{color:#a42d28}.workspace{width:min(1200px,92%);margin:42px auto 100px}.tag{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;background:#fff1cc;color:#614800;font-weight:800;font-size:11px;border-radius:100px}.headline{font-weight:950;font-size:clamp(33px,4vw,50px);letter-spacing:-.06em;margin:16px 0 10px}.subheading{font-size:15px;color:var(--muted);line-height:1.7;margin:0 0 34px}.editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,.9fr);gap:20px;align-items:start}.fields{min-width:0}.panel{background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:27px;margin-bottom:18px;box-shadow:0 2px 10px #242b3110}.panel h2{font-size:19px;margin:0 0 9px}.panel .detail{font-size:12px;color:var(--muted);line-height:1.65;margin:0 0 24px}.field{margin:18px 0 22px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:10px}.field input[type=text],.field input[type=email],.field input[type=password],.field textarea{border:1px solid #d5dae2;border-radius:9px;display:block;width:100%;padding:12px 13px;color:#252a30;background:#fff;font-size:14px;line-height:1.6}.field textarea{min-height:88px;resize:vertical}.field input:focus,.field textarea:focus{outline:2px solid #f3bd32;border-color:#f3bd32}.field small{display:block;color:var(--muted);margin:7px 0}.imagebox{border:1px dashed #bcc4ce;border-radius:12px;padding:14px;background:#fafbfc}.imagebox img{width:100%;max-height:210px;object-fit:contain;background:repeating-linear-gradient(45deg,#efeff0,#efeff0 10px,#fff 10px,#fff 20px);border-radius:8px;margin-bottom:12px}.imagebox .controls{display:flex;gap:8px;flex-wrap:wrap}.imagebox .link-input{margin-top:12px}.preview{position:sticky;top:93px;background:#fff;padding:12px;border-radius:15px;border:1px solid var(--line);box-shadow:0 5px 20px #00000008}.previewbar{display:flex;gap:7px;align-items:center;justify-content:space-between;padding:4px 4px 15px}.previewbar strong{font-size:13px}.previewbar small{font-size:11px;color:var(--muted)}.previewbar button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 10px}.preview iframe{display:block;width:100%;height:min(70vh,750px);border:1px solid #cfd3db;border-radius:9px;background:#fff}.preview.mobile iframe{width:360px;max-width:100%;height:640px;margin:auto}.card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px}.card-head h2{margin:0}.mini-actions{display:flex;gap:5px;flex-wrap:wrap}.mini-actions button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 10px;font-size:12px}.mini-actions .remove{color:#a52222}.entry{border:1px solid var(--line);border-radius:12px;padding:20px;margin:20px 0;background:#fafbfc}.entry:first-of-type{margin-top:0}.entry .field:last-child{margin-bottom:0}.status{margin:0 0 22px;padding:13px 16px;border-radius:9px;background:#e7f6ea;color:#245a35;font-size:13px;display:none;line-height:1.7}.status.show{display:block}.status.error{background:#fff0ed;color:#983323}.status.warn{background:#fff4d6;color:#70520b}.helper{font-size:13px;color:#5f6670;line-height:1.7}.login-form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.login-form label{display:block;font-size:12px;font-weight:800;margin-bottom:8px}.login-form input{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px}.section-tip{padding:14px 17px;background:#fff9e8;border:1px solid #f5df9c;border-radius:9px;line-height:1.7;font-size:13px;margin-bottom:21px}.hide{display:none!important}hr{border:0;border-top:1px solid var(--line);margin:22px 0}.inline-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.footer{font-size:12px;color:#78808c;margin-top:24px;line-height:1.7}.pill{display:inline-block;border-radius:12px;background:#e9ecef;padding:5px 9px;font-size:11px;font-weight:800;color:#555}.secret{font-size:12px;color:#b42a2a}.no-border{border:0}.desktop-hint{display:none}@media(max-width:1100px){.editor-grid{grid-template-columns:1fr}.preview{position:relative;top:auto}.preview iframe{height:500px}}@media(max-width:740px){.layout{display:block}.side{position:relative;height:auto;padding:13px 15px 0}.logo{font-size:20px}.side-desc,.side-bottom{display:none}.nav{display:flex;overflow:auto;gap:6px;margin-top:10px}.navbtn{width:auto;flex-shrink:0;white-space:nowrap;padding:11px;font-size:12px}.navbtn b{display:none}.toolbar{position:relative}.workspace{width:94%;margin:28px auto 70px}.panel{padding:20px}.login-form{grid-template-columns:1fr}.toolbar-title{width:100%}.actions{width:100%}.actions .btn{flex:1}.preview iframe{height:470px}}
+</style>
+<script>
+// Supabase 연결 전에는 빈 문자열로 유지하세요.
+// 공개용 publishable/anon key만 입력합니다. secret/service_role 키 절대 입력 금지.
+window.STAGEON_CONFIG = {
+  url: "",
+  anonKey: ""
+};
+
+</script><script>
+window.STAGEON_DEFAULT_DATA = {
+  "version": 3,
+  "brandColor": "#ffb900",
+  "fields": {
+    "hero.title": "PAJU\nFILM\nSTUDIO.",
+    "hero.kicker": "BEST LOCATION · BEST STUDIO",
+    "hero.description": "작품을 위한 최적의 공간.\n상암 DMC에서 20분대, 독립형 촬영 스튜디오 5개를 갖춘 스테이지온을 소개합니다.",
+    "hero.micro": "STAGE ON\nPAJU · KOREA\n2024. 02 COMPLETED",
+    "hero.image": "https://framerusercontent.com/images/ofJFQ7s1JAXIFWzKaBrQbOPHSQ.png?height=2160&width=3840",
+    "overview.stats.0.label": "상암 DMC에서 약 39km",
+    "overview.stats.0.value": "In 20mins",
+    "overview.stats.1.label": "전체 임대면적(약)",
+    "overview.stats.1.value": "4,500평",
+    "overview.stats.2.label": "독립적인 스튜디오",
+    "overview.stats.2.value": "5 Studios",
+    "overview.heading": "최고의 작품을\n최고의 공간에서.",
+    "overview.paragraphs.0": "근무 만족도, 효율적 운영, 비용 절감. 모든 요소를 완성하는 건 바로 “입지”입니다.",
+    "overview.paragraphs.1": "미디어 기업 밀집지역인 서울 상암 DMC에서 20분대 거리에 위치하여, 뛰어난 접근성으로 운영 효율과 비용 절감을 극대화할 수 있습니다.",
+    "overview.paragraphs.2": "약 8,900평 부지에 700–1,100평 규모의 독립형 스튜디오 5개와 다양한 부대시설을 갖추고 있습니다. 2024년 2월 준공되었습니다.",
+    "overview.image": "https://framerusercontent.com/images/dd58gjncm788Vn1Jv0nq7u9WAk.png?height=2160&width=3840",
+    "overview.ctaKicker": "PRODUCTION STARTS HERE",
+    "overview.ctaTitle": "YOUR NEXT\nMASTERPIECE.",
+    "overview.ctaDesc": "대관 및 시설 문의를 환영합니다.",
+    "studios.lead": "각기 다른 규모와 구조의 독립형 촬영 스튜디오 5개를 만나보세요.",
+    "studios.introTitle": "당신의 무대를\n선택하세요.",
+    "studios.introText": "스테이지온은 다양한 규모의 촬영을 지원하는 독립형 공간을 갖추고 있습니다. 아래에서 스테이지를 선택해 규모와 정보를 확인하세요.",
+    "studios.notice": "※ 정확한 면적과 크기는 반드시 직접 문의하여 확인해 주시기 바랍니다.",
+    "studios.map": "https://framerusercontent.com/images/ke3bfLngs2gMbGwXVXfVhTtzPos.png?height=502&width=603",
+    "studios.A.support": "243",
+    "studios.A.area": "1,172평",
+    "studios.A.floor": "929평",
+    "studios.A.image": "https://framerusercontent.com/images/0LDWt7X3MqKjzPlwkstosiItHZg.png?height=944&width=1586",
+    "studios.B1.support": "153",
+    "studios.B1.area": "700평",
+    "studios.B1.floor": "547평",
+    "studios.B1.description": "Stage B-1은 547평 규모의 독립 촬영공간과 153평의 부속 시설을 갖추고 있습니다. 상세 도면은 별도로 문의해 주세요.",
+    "studios.B2.support": "153",
+    "studios.B2.area": "700평",
+    "studios.B2.floor": "547평",
+    "studios.B2.description": "Stage B-2는 547평 규모의 독립 촬영공간과 153평의 부속 시설을 갖추고 있습니다. 상세 도면은 별도로 문의해 주세요.",
+    "studios.C.support": "165",
+    "studios.C.area": "1,016평",
+    "studios.C.floor": "851평",
+    "studios.C.description": "Stage C는 851평 규모의 독립 촬영공간과 165평의 부속 시설을 갖추고 있습니다. 상세 도면은 별도로 문의해 주세요.",
+    "studios.D.support": "161",
+    "studios.D.area": "911평",
+    "studios.D.floor": "750평",
+    "studios.D.description": "Stage D는 750평 규모의 독립 촬영공간과 161평의 부속 시설을 갖추고 있습니다. 상세 도면은 별도로 문의해 주세요.",
+    "supports.lead": "촬영과 제작에 집중할 수 있는 편리한 지원시설을 제공합니다.",
+    "works.headline": "StageON에서\n완성된 걸작들",
+    "works.lead": "스테이지온이 함께한 드라마, 영화, 예능 등 포트폴리오를 확인하세요.",
+    "contact.intro": "상암 DMC에서 20분대, 국내 최고 수준의 스튜디오 임대 문의, 주차장 및 부대시설 관련 문의 등 궁금한 사항을 남겨주시면 담당자가 신속하게 연락드리겠습니다.",
+    "contact.people.0.label": "남영찬 대표",
+    "contact.people.0.value": "010 8853 3454",
+    "contact.people.1.label": "이윤영 상무",
+    "contact.people.1.value": "010 7730 2858",
+    "contact.people.2.label": "스테이지온",
+    "contact.people.2.value": "031 957 3040",
+    "contact.people.3.label": "이메일",
+    "contact.people.3.value": "yunyoung21@hanmail.net",
+    "contact.address": "경기도 파주시 엘지로 438-130",
+    "contact.map": "https://framerusercontent.com/images/JVdRTHKLP2OGTjcCvgTk1S4ETvc.png?height=517&width=629",
+    "footer.tagline": "최고의 작품을 최고 수준의 스튜디오에서 완성하세요.",
+    "studios.A.description": "",
+    "studios.B1.image": "",
+    "studios.B2.image": "",
+    "studios.C.image": "",
+    "studios.D.image": ""
+  },
+  "facilities": [
+    {
+      "title": "01. 분장실",
+      "description": "내부에 화장실이 완비된 2개의 주연 배우실을 제공하여 배우의 프라이버시를 완벽하게 보장합니다. 촬영 전후로 편안하게 집중하고 휴식할 수 있는 공간입니다.",
+      "image": "https://framerusercontent.com/images/HjLUv3gyBO1uZMFCtbJlivALRE.jpg?height=1080&width=1080"
+    },
+    {
+      "title": "02. 식당",
+      "description": "장기 촬영에도 지치지 않도록 150석 규모의 쾌적한 식당에서 든든한 식사를 제공합니다. 24시간 무인 편의점도 입점 예정으로 안내되어 있습니다.",
+      "image": "https://framerusercontent.com/images/oQvAjZ0mrJvrszjgaI8vvnLtAA.jpg?height=1300&width=1080"
+    },
+    {
+      "title": "03. 주차장",
+      "description": "넓은 지하 주차장을 완비하여 차량과 촬영 장비의 접근 및 관리가 편리합니다. 전기차 충전소와 CCTV 등 편의 및 보안 시설도 갖추고 있습니다.",
+      "image": "https://framerusercontent.com/images/d91kPOQ4Ved9M1lxKnWKNNebNA.png?height=788&width=2158"
+    },
+    {
+      "title": "04. 대기실",
+      "description": "조명 대기실, 의상실, 사무실, 다목적실 등 제작을 위한 부속시설을 제공합니다. 휴식, 회의, 준비 작업을 유연하게 수행할 수 있도록 구성되어 있습니다.",
+      "image": "https://framerusercontent.com/images/KUOS7wayon7G1CpZmSUbqKGW7wM.jpg?height=1300&width=1080"
+    }
+  ],
+  "works": [
+    {
+      "title": "북극성",
+      "image": "https://framerusercontent.com/images/4ttuvMF6O7dTtNtUJ4cdgN1xzg.png?height=1672&width=1168"
+    },
+    {
+      "title": "보물섬",
+      "image": "https://framerusercontent.com/images/M2zhOcUjUcboOAkm9R8sCP9Wd0.png?height=1406&width=990"
+    },
+    {
+      "title": "대학전쟁",
+      "image": "https://framerusercontent.com/images/dkiEGXjnmRwvVVGRiqzxkQoiuM.png?height=1290&width=900"
+    },
+    {
+      "title": "미혼남녀의 효율적 만남",
+      "image": "https://framerusercontent.com/images/VFpSuiDiqHxoLKfRW6ZXk4Tbfm8.png?height=714&width=500"
+    },
+    {
+      "title": "작품 포스터 5",
+      "image": "https://framerusercontent.com/images/TetbIXWvAerkZpOPm9oM0fvKGc.png?height=1676&width=1174"
+    },
+    {
+      "title": "보물섬 다른 포스터",
+      "image": "https://framerusercontent.com/images/btxzFoEJ5rioIaVF3cVuKTRS34.png?height=1404&width=994"
+    },
+    {
+      "title": "레이디 두아",
+      "image": "https://framerusercontent.com/images/pgmBRv7GCiaERxU5CKPKq3ezM0.png?height=740&width=500"
+    },
+    {
+      "title": "현역가왕3",
+      "image": "https://framerusercontent.com/images/10jo481nlCxy0BkNME6My58DiA.png?height=872&width=630"
+    }
+  ]
+};
+
+</script><script>
+/* StageON content transport: browser-only demo and optional Supabase production backend. */
+(function(){
+  'use strict';
+  const cfg=window.STAGEON_CONFIG||{};
+  const base=(cfg.url||'').replace(/\/+$/,'');
+  const key=cfg.anonKey||'';
+  const enabled=Boolean(/^https:\/\/[\w-]+\.supabase\.co$/.test(base)&&key);
+  function deepCopy(o){return JSON.parse(JSON.stringify(o));}
+  function mergeData(partial){
+    const d=deepCopy(window.STAGEON_DEFAULT_DATA);
+    if(!partial||typeof partial!=='object')return d;
+    if(partial.fields&&typeof partial.fields==='object')Object.assign(d.fields,partial.fields);
+    if(typeof partial.brandColor==='string')d.brandColor=partial.brandColor;
+    if(Array.isArray(partial.works))d.works=deepCopy(partial.works);
+    if(Array.isArray(partial.facilities))d.facilities=deepCopy(partial.facilities);
+    return d;
+  }
+  async function req(path,options={},token){
+    if(!enabled)throw Error('온라인 게시 연결이 설정되지 않았습니다.');
+    const headers={'apikey':key,...((token||key.startsWith('eyJ'))?{'Authorization':'Bearer '+(token||key)}:{}),...(options.headers||{})};
+    const res=await fetch(base+path,{...options,headers});
+    if(!res.ok){let msg='';try{const o=await res.json();msg=o.msg||o.message||o.error_description||o.error||'';}catch{}throw Error(msg||'서버 요청 실패 ('+res.status+')');}
+    if(res.status===204)return null;
+    const txt=await res.text();return txt?JSON.parse(txt):null;
+  }
+  async function getPublished(){
+    if(!enabled)return null;
+    const rows=await req('/rest/v1/site_content?id=eq.main&select=content',{headers:{'Accept':'application/json'}});
+    return rows?.[0]?.content||null;
+  }
+  async function logIn(email,password){
+    const data=await req('/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    if(!data?.access_token)throw Error('로그인 토큰을 받지 못했습니다.');
+    return data;
+  }
+  async function refreshToken(refresh){
+    return req('/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refresh})});
+  }
+  async function publish(data,token){
+    // The database has a seeded 'main' row; RLS protects updates.
+    return req('/rest/v1/site_content?id=eq.main',{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({content:data,updated_at:new Date().toISOString()})},token);
+  }
+  async function upload(file,token){
+    if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type))throw Error('JPG, PNG, WEBP, GIF 사진만 지원합니다.');
+    if(file.size>12*1024*1024)throw Error('사진은 12MB 이하여야 합니다.');
+    const extension=file.type==='image/jpeg'?'jpg':file.type==='image/png'?'png':file.type==='image/gif'?'gif':'webp';
+    const id=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2);
+    const filename=Date.now()+'-'+id+'.'+extension;
+    if(!enabled)throw Error('온라인 사진 저장소가 설정되지 않았습니다.');
+    const resp=await fetch(base+'/storage/v1/object/site-media/'+filename,{method:'POST',headers:{'apikey':key,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'false'},body:file});
+    if(!resp.ok){let message='사진 업로드에 실패했습니다.';try{message=(await resp.json()).message||message;}catch{}throw Error(message);}
+    return base+'/storage/v1/object/public/site-media/'+filename;
+  }
+  window.StageOnCMS={enabled,deepCopy,mergeData,getPublished,logIn,refreshToken,publish,upload};
+})();
+
+</script><script>
+(function(){
+'use strict';
+const cms=window.StageOnCMS;
+const STORAGE_KEY='stageon-cms-draft-v3';
+const sessionKey='stageon-cms-login-v3';
+const copy=cms.deepCopy;
+let data=cms.mergeData(null),published=cms.mergeData(null), view='overview';
+let selectedPhoto=null,timer=null,session=null,loadedRemote=false;
+const $=id=>document.getElementById(id);
+const mount=$('editorFields'),frame=$('previewFrame');
+const views={overview:['01 / OVERVIEW','메인 소개','메인 사진과 문구, 숫자 정보 등을 수정할 수 있어요.'],studios:['02 / STUDIOS','스튜디오','스튜디오별 면적과 설명 및 시설 사진을 수정해요.'],supports:['03 / SUPPORTS','부대시설','식당·주차장 등 사진과 시설 설명을 관리해요.'],works:['04 / WORKS','작품 목록','작품 포스터를 추가·삭제하거나 순서를 바꿔요.'],contact:['05 / CONTACT','연락처','대관 문의 연락처와 주소를 관리해요.'],settings:['06 / SETTINGS','설정·게시 연결','초안 백업, 관리자 로그인 및 온라인 게시 연결을 관리해요.']};
+function status(message,kind='ok'){
+  const s=$('status');s.textContent=message;s.className='status show'+(kind==='error'?' error':kind==='warn'?' warn':'');
+}
+function node(tag,cls,content){const e=document.createElement(tag);if(cls)e.className=cls;if(content!==undefined)e.textContent=content;return e;}
+function append(parent,...children){parent.append(...children);return parent;}
+function button(label,fn,cls='btn'){
+  const b=node('button',cls,label);b.type='button';b.addEventListener('click',fn);return b;
+}
+function panel(title,detail){const p=node('section','panel');p.append(node('h2',null,title));if(detail)p.append(node('p','detail',detail));mount.append(p);return p;}
+function rawInput(parent,label,value,set,{multi=false,placeholder='',type='text'}={}){
+  const wrap=node('div','field');const lab=node('label',null,label);const el=node(multi?'textarea':'input');
+  if(!multi)el.type=type;el.value=value??'';el.placeholder=placeholder;
+  el.addEventListener('input',()=>{set(el.value);changed();});
+  wrap.append(lab,el);parent.append(wrap);return el;
+}
+function field(parent,key,label,opts={}){
+  return rawInput(parent,label,data.fields[key]??'',v=>{data.fields[key]=v;},opts);
+}
+function photoInput(parent,label,read,write){
+  const wrap=node('div','field');wrap.append(node('label',null,label));
+  const zone=node('div','imagebox');const image=node('img');image.alt=label+' 미리보기';image.src=read()||'';
+  if(!read())image.style.display='none';
+  const controls=node('div','controls');
+  controls.append(button('사진 선택',()=>{selectedPhoto={write,image,link};$('photoInput').value='';$('photoInput').click();}));
+  controls.append(button('사진 주소 비우기',()=>{write('');image.removeAttribute('src');image.style.display='none';link.value='';changed();}));
+  const link=node('input','link-input');link.type='text';link.value=read()||'';link.placeholder='https://... 또는 images/사진.jpg';
+  link.addEventListener('change',()=>{write(link.value.trim());image.src=link.value.trim();image.style.display=link.value.trim()?'':'none';changed();});
+  zone.append(image,controls,link);wrap.append(zone);parent.append(wrap);
+}
+function changeNav(section){
+  view=section;
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('current',b.dataset.view===section));
+  const [tag,title,lead]=views[section];$('sectionTag').textContent=tag;$('sectionTitle').textContent=title;$('sectionIntro').textContent=lead;
+  renderFields();frame.src='./index.html?preview=1#'+(section==='settings'?'overview':section);$('status').className='status';
+  if(innerWidth<740)window.scrollTo({top:0,behavior:'smooth'});
+}
+function changed(){
+  clearTimeout(timer);timer=setTimeout(()=>{saveDraft(false);updatePreview();},350);
+}
+function saveDraft(notify=true){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));if(notify)status('초안을 이 기기에 저장했습니다. 실제 홈페이지에는 아직 게시되지 않았습니다.');}
+  catch(e){status('초안을 저장하지 못했습니다. 사진 용량이 너무 클 수 있어요. 백업 JSON을 내려받거나 온라인 저장소를 연결하세요.','error');}
+}
+function updatePreview(){try{frame.contentWindow.postMessage({type:'stageon-preview',content:data},'*');}catch(e){console.warn(e);}}
+window.addEventListener('message',e=>{if(e.source===frame.contentWindow&&e.data?.type==='stageon-preview-ready')updatePreview();});
+function overview(){
+  let p=panel('첫 화면','홈페이지를 처음 열었을 때 가장 크게 표시되는 화면이에요.');
+  field(p,'hero.kicker','상단 짧은 문구');field(p,'hero.title','메인 큰 제목',{multi:true});field(p,'hero.description','메인 소개 문장',{multi:true});field(p,'hero.micro','오른쪽 보조 문구',{multi:true});
+  photoInput(p,'메인 배경 사진',()=>data.fields['hero.image'],v=>data.fields['hero.image']=v);
+  p=panel('스튜디오 숫자 요약','원본 화면의 세 가지 강조 숫자입니다.');
+  for(let i=0;i<3;i++){field(p,`overview.stats.${i}.label`,`${i+1}번 정보 이름`);field(p,`overview.stats.${i}.value`,`${i+1}번 강조 숫자`);}
+  p=panel('소개 내용','본문에 표시되는 회사 소개 내용입니다.');
+  field(p,'overview.heading','소개 제목',{multi:true});
+  for(let i=0;i<3;i++)field(p,`overview.paragraphs.${i}`,`소개 문단 ${i+1}`,{multi:true});
+  photoInput(p,'소개 이미지',()=>data.fields['overview.image'],v=>data.fields['overview.image']=v);
+  p=panel('마지막 문의 배너');field(p,'overview.ctaKicker','짧은 문구');field(p,'overview.ctaTitle','큰 제목',{multi:true});field(p,'overview.ctaDesc','설명');
+}
+function studios(){
+  let p=panel('스튜디오 소개');field(p,'studios.lead','첫 설명',{multi:true});field(p,'studios.introTitle','본문 제목',{multi:true});field(p,'studios.introText','본문 설명',{multi:true});field(p,'studios.notice','안내 문구');
+  photoInput(p,'스튜디오 위치도',()=>data.fields['studios.map'],v=>data.fields['studios.map']=v);
+  for(const id of ['A','B1','B2','C','D']){
+    p=panel('STAGE '+({'B1':'B-1','B2':'B-2'}[id]||id),'각 스튜디오 탭에서 표시되는 상세 정보입니다.');
+    field(p,`studios.${id}.area`,'총 임대면적 (평)');field(p,`studios.${id}.floor`,'촬영장 면적 (평)');field(p,`studios.${id}.support`,'부속 시설 면적 (평)');field(p,`studios.${id}.description`,'스튜디오 설명',{multi:true});
+    photoInput(p,'스튜디오 도면 또는 사진',()=>data.fields[`studios.${id}.image`],v=>data.fields[`studios.${id}.image`]=v);
+  }
+}
+function supports(){
+  const p=panel('부대시설 상단 소개');field(p,'supports.lead','소개 문구',{multi:true});
+  append(mount,node('div','section-tip','사진을 바꾸거나 이름과 설명을 고치세요. 새 시설을 추가하거나 시설 표시 순서를 변경할 수 있어요.'));
+  data.facilities.forEach((item,i)=>{
+    const p=panel('시설 '+(i+1));const head=node('div','card-head');head.append(node('h2',null,item.title||'새 시설'));const actions=node('div','mini-actions');
+    actions.append(button('↑',()=>move(data.facilities,i,-1),'no-border'),button('↓',()=>move(data.facilities,i,1),'no-border'),button('삭제',()=>remove(data.facilities,i,'시설'),'remove'));
+    head.append(actions);p.prepend(head);
+    rawInput(p,'시설 이름',item.title,v=>item.title=v);
+    rawInput(p,'시설 설명',item.description,v=>item.description=v,{multi:true});
+    photoInput(p,'시설 사진',()=>item.image,v=>item.image=v);
+  });
+  append(mount,button('+ 부대시설 추가',()=>{data.facilities.push({title:'새 시설',description:'시설 소개를 입력하세요.',image:''});redraw();},'btn primary'));
+}
+function works(){
+  let p=panel('작품 페이지 소개');field(p,'works.headline','작품 목록 제목',{multi:true});field(p,'works.lead','작품 소개 문구',{multi:true});
+  append(mount,node('div','section-tip','포스터를 추가하면 작품 페이지에 자동으로 표시됩니다. 위아래 화살표로 순서를 바꿀 수 있어요.'));
+  data.works.forEach((item,i)=>{
+    const p=panel('작품 '+(i+1));const head=node('div','card-head');head.append(node('h2',null,item.title||'새 작품'));const actions=node('div','mini-actions');
+    actions.append(button('↑',()=>move(data.works,i,-1),'no-border'),button('↓',()=>move(data.works,i,1),'no-border'),button('삭제',()=>remove(data.works,i,'작품'),'remove'));
+    head.append(actions);p.prepend(head);
+    rawInput(p,'작품 이름',item.title,v=>item.title=v);
+    photoInput(p,'작품 포스터',()=>item.image,v=>item.image=v);
+  });
+  append(mount,button('+ 작품 추가',()=>{data.works.push({title:'새 작품',image:''});redraw();},'btn primary'));
+}
+function move(items,i,delta){const j=i+delta;if(j<0||j>=items.length)return;[items[i],items[j]]=[items[j],items[i]];redraw();}
+function remove(items,i,kind){if(!confirm(`${kind} 항목을 삭제할까요? 게시 전에는 방문자에게 영향을 주지 않습니다.`))return;items.splice(i,1);redraw();}
+function redraw(){clearTimeout(timer);saveDraft(false);renderFields();updatePreview();}
+function contact(){
+  let p=panel('대관 문의');field(p,'contact.intro','문의 안내 문구',{multi:true});
+  p=panel('연락처 정보','번호와 이메일을 수정하면 홈페이지의 연락 링크도 함께 바뀝니다.');
+  for(let i=0;i<4;i++){field(p,`contact.people.${i}.label`,`${i+1}번 연락처 이름`);field(p,`contact.people.${i}.value`,`${i+1}번 연락처 내용`);}
+  p=panel('주소·지도');field(p,'contact.address','회사 주소');photoInput(p,'오시는 길 이미지',()=>data.fields['contact.map'],v=>data.fields['contact.map']=v);
+  p=panel('홈페이지 하단');field(p,'footer.tagline','하단 소개 문구');
+}
+function settings(){
+  let p=panel('디자인 기본 설정','회사 브랜드 컬러 등을 지정할 수 있습니다.');
+  const wrap=node('div','field');wrap.append(node('label',null,'강조 색상'));const color=node('input');color.type='color';color.value=/^#[0-9a-fA-F]{6}$/.test(data.brandColor)?data.brandColor:'#ffb900';
+  color.addEventListener('input',()=>{data.brandColor=color.value;changed();});wrap.append(color);p.append(wrap);
+  p=panel('편집본 백업 및 복구','수정한 데이터만 JSON 파일로 저장합니다. 나중에 다른 컴퓨터에서도 불러올 수 있어요.');
+  const row=node('div','inline-row');row.append(button('편집본 JSON 다운로드',downloadJSON),button('JSON 파일 불러오기',()=>$('importInput').click()));p.append(row);
+  p=panel('공개 홈페이지 연결',cms.enabled?'온라인 게시용 연결 정보를 읽었습니다.':'온라인 저장소는 아직 연결되지 않았습니다. 이 상태에서는 미리보기와 로컬 백업을 사용할 수 있어요.');
+  const text=node('p','helper',cms.enabled?'로그인한 관리자만 게시할 수 있습니다. 인증과 게시 권한은 Supabase의 사용자 계정 및 데이터베이스 보안 정책으로 관리됩니다.':'사이트를 인터넷에 올리고 Supabase의 URL과 공개용 publishable/anon key를 config.js에 입력한 뒤 database_setup.sql을 실행하세요. 그러면 관리자 로그인과 게시 기능을 사용할 수 있어요.');p.append(text);
+  p.append(node('p','helper','설정에 secret/service_role 키 또는 계정 비밀번호를 코드에 적으면 안 됩니다. 관리자 비밀번호는 로그인 폼에서만 입력하세요.'));
+  if(!cms.enabled){p.append(node('div','section-tip','현재는 오프라인 편집기입니다. 상단의 「홈페이지에 게시」는 서버 연결 전까지 실제 홈페이지를 바꾸지 않습니다.'));return;}
+  const form=node('form','login-form');const emailWrap=node('div');emailWrap.append(node('label',null,'관리자 이메일'));const email=node('input');email.type='email';email.autocomplete='email';email.required=true;emailWrap.append(email);
+  const passwordWrap=node('div');passwordWrap.append(node('label',null,'비밀번호'));const password=node('input');password.type='password';password.autocomplete='current-password';password.required=true;passwordWrap.append(password);
+  const submit=node('button','btn dark',session?'다시 로그인':'로그인');submit.type='submit';form.append(emailWrap,passwordWrap,submit);
+  form.addEventListener('submit',async e=>{e.preventDefault();submit.disabled=true;try{session=await cms.logIn(email.value.trim(),password.value);sessionStorage.setItem(sessionKey,JSON.stringify(session));password.value='';status('관리자로 로그인했습니다. 수정 후 오른쪽 위 게시 버튼을 누르세요.');renderFields();}catch(err){status('로그인 실패: '+err.message,'error');}finally{submit.disabled=false;}});
+  p.append(form);
+  if(session){p.append(node('p','helper','현재 브라우저에서 관리자 로그인이 활성화되어 있습니다.'));p.append(button('로그아웃',()=>{session=null;sessionStorage.removeItem(sessionKey);renderFields();status('로그아웃했습니다.');}));}
+  p=panel('기본 데이터로 되돌리기','현재 편집 초안에만 적용됩니다. 공개 홈페이지는 변경되지 않습니다.');
+  p.append(button('마지막 게시 내용 불러오기',()=>{if(confirm('지금 수정 중인 내용을 마지막 게시본으로 되돌릴까요?')){data=cms.mergeData(published);redraw();status('마지막 게시 내용을 불러왔습니다.');}},'btn danger'));
+}
+function renderFields(){mount.replaceChildren();({overview,studios,supports,works,contact,settings}[view])();}
+function downloadJSON(){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='StageON_콘텐츠백업_'+new Date().toISOString().slice(0,10)+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(link.href),4000);status('백업 파일을 내려받았습니다. 안전한 폴더에 보관하세요.');}
+$('importInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>20*1024*1024)throw Error('파일 용량이 너무 큽니다.');const parsed=JSON.parse(await file.text());if(!parsed.fields||!Array.isArray(parsed.works)||!Array.isArray(parsed.facilities))throw Error('StageON 백업 파일 형식이 아닙니다.');data=cms.mergeData(parsed);redraw();status('백업 내용을 불러왔습니다. 변경 후 게시해야 실제 홈페이지에 반영됩니다.');}catch(err){status('불러오기 실패: '+err.message,'error');}e.target.value='';});
+async function previewPhoto(file){if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type))throw Error('JPG, PNG, WEBP, GIF 사진만 올릴 수 있습니다.');if(file.size>12*1024*1024)throw Error('12MB 이하의 사진만 올려주세요.');
+  if(file.type==='image/gif'){if(file.size>1_000_000)throw Error('움직이는 GIF는 1MB 이하만 로컬로 저장할 수 있습니다.');return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file);});}
+  const original=await createImageBitmap(file);
+  const scale=Math.min(1,1400/Math.max(original.width,original.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(original.width*scale));canvas.height=Math.max(1,Math.round(original.height*scale));
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(original,0,0,canvas.width,canvas.height);original.close?.();
+  return canvas.toDataURL('image/jpeg',.75);
+}
+$('photoInput').addEventListener('change',async e=>{const file=e.target.files?.[0],dest=selectedPhoto;if(!file||!dest)return;try{
+ const uri=await previewPhoto(file);dest.write(uri);dest.image.src=uri;dest.image.style.display='';dest.link.value=uri;changed();status('사진이 편집 초안에 추가됐어요. 실제 게시할 때 온라인 이미지 저장소로 올립니다.');
+ }catch(err){status('사진 변경 실패: '+err.message,'error');}e.target.value='';});
+async function uploadPendingImages(content,token){const fields=content.fields;let count=0;
+  async function push(uri){const blob=await (await fetch(uri)).blob();const suffix=blob.type.split('/')[1]||'jpeg';const file=new File([blob],'stageon-image.'+(suffix==='jpeg'?'jpg':suffix),{type:blob.type});const url=await cms.upload(file,token);count++;status('사진 업로드 '+count+'장 완료…');return url;}
+  for(const [k,v] of Object.entries(fields))if(k.endsWith('.image')||['studios.map','contact.map','overview.image','hero.image'].includes(k)){if(typeof v==='string'&&v.startsWith('data:image/'))fields[k]=await push(v);}
+  for(const obj of [...content.works,...content.facilities])if(typeof obj.image==='string'&&obj.image.startsWith('data:image/'))obj.image=await push(obj.image);
+  return content;
+}
+async function publish(){
+  if(!cms.enabled){changeNav('settings');status('온라인 게시를 하려면 우선 사이트 배포와 Supabase 연동이 필요해요. 설정·게시 연결 설명을 확인하세요.','warn');return;}
+  if(!session?.access_token){changeNav('settings');status('게시하려면 먼저 관리자 계정으로 로그인하세요.','warn');return;}
+  if(!confirm('현재 수정 내용을 공개 홈페이지에 게시할까요?'))return;
+  const b=$('publishButton');b.disabled=true;
+  try{const draft=copy(data);status('홈페이지에 게시 중입니다.');await uploadPendingImages(draft,session.access_token);
+    const result=await cms.publish(draft,session.access_token);if(!Array.isArray(result)||result.length===0)throw Error('게시 권한이 없거나 업데이트가 적용되지 않았습니다.');
+    data=cms.mergeData(draft);published=copy(data);saveDraft(false);renderFields();updatePreview();status('게시 완료! 공개 홈페이지 새로고침 시 변경 사항이 반영됩니다.');
+  }catch(err){status('게시 실패: '+err.message+' 로그인 상태·관리자 권한·네트워크를 확인하세요.','error');}
+  finally{b.disabled=false;}
+}
+$('publishButton').addEventListener('click',publish);
+$('draftButton').addEventListener('click',()=>saveDraft(true));
+$('downloadButton').addEventListener('click',downloadJSON);
+$('desktopButton').addEventListener('click',()=>$('previewBox').classList.remove('mobile'));
+$('mobileButton').addEventListener('click',()=>$('previewBox').classList.add('mobile'));
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>changeNav(b.dataset.view)));
+try{const saved=localStorage.getItem(STORAGE_KEY);if(saved)data=cms.mergeData(JSON.parse(saved));}catch(e){console.warn('Local draft inaccessible',e);}
+try{const saved=sessionStorage.getItem(sessionKey);if(saved)session=JSON.parse(saved);}catch{}
+$('modeLabel').textContent=cms.enabled?'온라인 게시 가능 · 로그인 필요':'로컬 초안 · 온라인 미연결';
+changeNav('overview');
+if(cms.enabled){
+  cms.getPublished().then(remote=>{if(remote){published=cms.mergeData(remote);if(!localStorage.getItem(STORAGE_KEY)){data=copy(published);renderFields();updatePreview();}loadedRemote=true;}}).catch(e=>status('온라인 원본을 불러오지 못했습니다: '+e.message+' (기본 내용을 표시합니다)','warn'));
+}
+})();
+
+</script>
+</head><body>
+<div class="layout"><aside class="side"><div class="logo">STAGE<span>ON</span></div><div class="side-desc">WEBSITE MANAGEMENT</div>
+<nav class="nav" aria-label="관리자 편집 메뉴">
+<button class="navbtn current" data-view="overview"><b>01</b>메인 소개</button>
+<button class="navbtn" data-view="studios"><b>02</b>스튜디오</button>
+<button class="navbtn" data-view="supports"><b>03</b>부대시설</button>
+<button class="navbtn" data-view="works"><b>04</b>작품 목록</button>
+<button class="navbtn" data-view="contact"><b>05</b>연락처</button>
+<button class="navbtn" data-view="settings"><b>06</b>설정·게시 연결</button>
+</nav><div class="side-bottom">홈페이지에 표시될 내용을 수정하는 관리자 화면입니다.<p><a href="./index.html" target="_blank" rel="noopener">방문자 홈페이지 열기 ↗</a></p></div></aside>
+<main class="main"><div class="toolbar"><div class="toolbar-title">홈페이지 관리자 <small id="modeLabel">로컬 편집 모드</small></div><div class="actions"><button class="btn" id="draftButton">초안 저장</button><button class="btn" id="downloadButton">백업 JSON ↓</button><button class="btn primary" id="publishButton">홈페이지에 게시 ↗</button></div></div>
+<div class="workspace"><div id="status" class="status" role="status"></div><div class="tag" id="sectionTag">01 / CONTENT EDITOR</div><h1 class="headline" id="sectionTitle">메인 소개</h1><p class="subheading" id="sectionIntro">홈페이지에 표시할 문구와 사진을 바꾸세요. 오른쪽 미리보기에서 즉시 확인할 수 있습니다.</p>
+<div class="editor-grid"><div class="fields" id="editorFields"></div><div class="preview" id="previewBox"><div class="previewbar"><div><strong>실시간 미리보기</strong><br><small>방문자에게 보이는 모습</small></div><div><button id="desktopButton" aria-label="PC 화면">PC</button><button id="mobileButton" aria-label="휴대폰 화면">모바일</button></div></div><iframe id="previewFrame" title="스테이지온 홈페이지 미리보기" src="./index.html?preview=1#overview"></iframe><p class="helper" style="padding:0 4px">사진과 문구는 게시 전까지 공개 홈페이지에 적용되지 않습니다.</p></div></div><div class="footer">StageON 독립형 관리자 · 사진은 원본 제공 자료로 교체하기 전까지 기존 Framer 서버를 참조할 수 있습니다.</div></div>
+</main></div><input type="file" id="importInput" accept="application/json,.json" hidden><input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+</body></html>
