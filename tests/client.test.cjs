@@ -39,6 +39,9 @@ async function run(){
  const setup=ui();setup.run("state.myId='me'");setup.fire('room:update',{...room,phase:'lobby',discussionSeconds:420});
  assert(setup.html().indexOf('id="discussion"')<setup.html().indexOf('역할 구성'));assert.equal(setup.el('discussion').value,'420');
  setup.el('discussion').onchange({target:{value:'600'}});assert.equal(setup.sent.at(-1).event,'room:setDiscussion');assert.equal(setup.sent.at(-1).data.seconds,600);tests++;
- console.log(`Client/voice checks passed: ${tests} scenarios (selection/reveal persistence, ready state, hidden cards, host-only voice, delayed TTS, unsupported/stalled TTS, result leave, pregame time).`);
+ const bots=ui();bots.run("state.myId='me'");bots.fire('room:update',{...room,phase:'lobby'});
+ assert(bots.html().includes('id="addBot"'));assert(bots.html().includes('id="fillBots"'));bots.el('fillBots').onclick();assert.equal(bots.sent.at(-1).event,'room:addBot');assert.equal(bots.sent.at(-1).data.fill,true);tests++;
+ const botGuest=ui();botGuest.run("state.myId='other'");botGuest.fire('room:update',{...room,phase:'lobby'});assert(!botGuest.html().includes('id="addBot"'));tests++;
+ console.log(`Client/voice checks passed: ${tests} scenarios (selection/reveal persistence, ready state, hidden cards, host-only voice, delayed TTS, unsupported/stalled TTS, result leave, pregame time, bot controls).`);
 }
 run().catch(e=>{console.error(e);process.exitCode=1});

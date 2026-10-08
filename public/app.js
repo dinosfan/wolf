@@ -161,7 +161,9 @@ function renderLobby(){
 
   app.innerHTML=shell(`${topbar()}
     <div class="card"><button id="leave" class="btn secondary">← 나가기 · 처음으로</button><h2>대기방</h2><div class="codebox"><div class="muted">방 코드</div><div class="code">${room.code}</div><div class="host-note">친구들에게 이 코드만 알려주세요.</div></div>
-      ${room.players.map(p=>`<div class="player"><div><span class="dot ${p.connected?'':'off'}"></span><span class="player-name">${esc(p.name)}</span>${p.id===room.hostId?' <span class="badge">방장</span>':''}</div></div>`).join('')}
+      ${room.players.map(p=>`<div class="player"><div><span class="dot ${p.connected?'':'off'}"></span><span class="player-name">${esc(p.name)}</span>${p.bot?' <span class="badge">🤖 봇</span>':''}${p.id===room.hostId?' <span class="badge">방장</span>':''}</div>${isHost()&&p.bot?`<button class="mini-btn" data-remove-bot="${p.id}" aria-label="${esc(p.name)} 삭제">삭제</button>`:''}</div>`).join('')}
+      ${isHost()?`<div class="row"><button id="addBot" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>🤖 봇 1명 추가</button><button id="fillBots" class="btn secondary" ${room.players.length>=room.playerCount?'disabled':''}>빈 자리 봇으로 채우기</button></div>`:''}
+      <div class="hint">테스트용 봇은 역할 확인·밤 행동·투표를 자동으로 합니다. 행동과 투표는 무작위이며, 추리 대화는 하지 않습니다.</div>
     </div>
     <div class="card"><h2>참가 인원</h2>
       ${isHost()?`<select id="playerCount" class="input">${Array.from({length:8},(_,i)=>i+3).map(n=>`<option value="${n}" ${n<room.players.length?'disabled':''}>${n}명</option>`).join('')}</select>`:`<div>${room.playerCount}명</div>`}
@@ -184,6 +186,10 @@ function renderLobby(){
   document.getElementById('narrationToggle').onclick=()=>{setNarrationEnabled(!state.narrationEnabled);renderLobby();};
   document.getElementById('narrationTest').onclick=()=>{setNarrationEnabled(true);primeNarration();speakNarration('나레이션 테스트입니다. 밤에는 자신의 역할이 호명될 때만 눈을 뜨세요.',{test:true});renderLobby();};
   if(isHost()){
+    const botRequest=(event,payload)=>socket.emit(event,payload,res=>{if(!res?.ok)toast(res?.error||'봇 설정을 변경할 수 없습니다.');});
+    document.getElementById('addBot').onclick=()=>botRequest('room:addBot',{});
+    document.getElementById('fillBots').onclick=()=>botRequest('room:addBot',{fill:true});
+    document.querySelectorAll('[data-remove-bot]').forEach(b=>b.onclick=()=>botRequest('room:removeBot',{playerId:b.dataset.removeBot}));
     document.getElementById('playerCount').value=String(room.playerCount);
     document.getElementById('playerCount').onchange=e=>socket.emit('room:setPlayerCount',{count:Number(e.target.value)},res=>{if(!res?.ok){toast(res?.error);renderLobby();}});
     document.querySelectorAll('[data-plus]').forEach(b=>b.onclick=()=>adjustRole(b.dataset.plus,1));

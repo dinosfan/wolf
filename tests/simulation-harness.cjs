@@ -20,6 +20,7 @@ function harness(seed=1){
   clients.set(id,c);connect(socket);return c;
  }
  function advance(ms){const end=now+ms;let guard=0;while(true){const entry=[...timers].filter(([,t])=>t.time<=end).sort((a,b)=>a[1].time-b[1].time||a[0]-b[0])[0];if(!entry)break;if(++guard>10000)throw Error('Timer runaway');now=entry[1].time;timers.delete(entry[0]);entry[1].fn();if(entry[1].interval)timers.set(entry[0],{...entry[1],time:now+entry[1].interval});}now=end;}
- return {ctx,client,advance,events,clients,room:code=>vm.runInContext(`rooms.get(${JSON.stringify(code)})`,ctx),setDeck:roles=>{ctx.fixed=roles;vm.runInContext('shuffle = a => fixed.map((r,i)=>a.filter(c=>c.role===r)[fixed.slice(0,i).filter(x=>x===r).length]);',ctx)},now:()=>now};
+ vm.runInContext('const simulationShuffle = shuffle;',ctx);
+ return {ctx,client,advance,events,clients,room:code=>vm.runInContext(`rooms.get(${JSON.stringify(code)})`,ctx),setDeck:roles=>{ctx.fixed=roles;vm.runInContext('shuffle = a => a.length === fixed.length && a.every(c=>c.role) ? fixed.map((r,i)=>a.filter(c=>c.role===r)[fixed.slice(0,i).filter(x=>x===r).length]) : simulationShuffle(a);',ctx)},now:()=>now};
 }
 module.exports={harness,root};
