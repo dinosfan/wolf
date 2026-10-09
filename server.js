@@ -149,6 +149,7 @@ function publicRoom(room) {
     code: room.code,
     fastBots: !!room.fastBots,
     fastBotGame: fastBotGame(room),
+    nightActionEndsAt:room.nightActionEndsAt||null,
     hostId: room.hostId,
     phase: room.phase,
     players: room.players.map(p => ({
@@ -440,7 +441,7 @@ function botNightPayload(prompt) {
 }
 
 function sendNightPrompt(room, player, prompt) {
-  if (!player.bot) return io.to(player.id).emit('night:prompt', prompt);
+  if (!player.bot) return io.to(player.id).emit('night:prompt', {...prompt,endsAt:room.nightActionEndsAt||null});
   scheduleBot(room, player, () => {
     if (room.phase !== 'night' || !room.actionWindowOpen) return;
     handleNightAction(room, player.id, botNightPayload(prompt), res => {
@@ -449,11 +450,29 @@ function sendNightPrompt(room, player, prompt) {
   });
 }
 
+
+function finishTimedNightActions(room){
+  // All roles receive the same fixed window, even when no actor is awake.
+  // Drain copied-role followups and outstanding reveals at the deadline.
+  for(const id of [...room.pendingActors]){
+    for(let pass=0;pass<4 && room.pendingActors.has(id);pass++){
+      if(room.awaitingAck.has(id)){handleNightAck(room,id);continue;}
+      const player=room.players.find(p=>p.id===id),prompt=rebuildPendingPrompt(room,player);
+      if(!prompt){actorDone(room,id);break;}
+      const payload=prompt.stage==='copy'?botNightPayload(prompt):prompt.skipAllowed?{skip:true}:botNightPayload(prompt);
+      handleNightAction(room,id,payload,()=>{});
+    }
+  }
+  room.actionWindowOpen=false;
+  emitRoom(room);
+}
+
 function openActionWindow(room, step, actors) {
   if (!room || room.phase !== 'night' || room.activeNightRole !== step) return;
   room.actionWindowOpen = true;
   room.minimumActionElapsed = false;
   room.actionWindowStartedAt = Date.now();
+  room.nightActionEndsAt=fastBotGame(room)?null:Date.now()+5000;
 
   actors.forEach(p => sendNightPrompt(room, p, buildNightPrompt(room, p, step)));
   room.players.filter(p => !room.pendingActors.has(p.id)).forEach(p => {
@@ -462,6 +481,7 @@ function openActionWindow(room, step, actors) {
   emitRoom(room);
 
   room.minimumActionTimer = setTimeout(() => {
+    if(!fastBotGame(room))finishTimedNightActions(room);
     room.minimumActionElapsed = true;
     maybeFinishNightStep(room);
   }, fastBotGame(room)?100:(MIN_ACTION_MS[step] || 7000));
@@ -480,6 +500,7 @@ function startNextNightStep(room) {
   const step = steps[room.nightIndex];
   const actors = activeNightActors(room, step);
   room.activeNightRole = step;
+  room.nightActionEndsAt=null;
   room.actionWindowOpen = false;
   room.pendingActors = new Set(actors.map(p => p.id));
   room.awaitingAck = new Set();

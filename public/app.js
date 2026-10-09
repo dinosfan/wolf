@@ -203,7 +203,7 @@ function renderLobby(){
       ${isHost()?`<select id="discussion" class="input" aria-label="토론 시간">${[1,2,3,4,5,7,10].map(m=>`<option value="${m*60}">${m}분</option>`).join('')}</select>`:`<div>${Math.round((room.discussionSeconds||240)/60)}분 · 방장이 설정</div>`}
     </div><div class="card"><h2>역할 구성</h2>${isHost()?'<div class="row"><button id="presetBeginner" class="btn secondary">🌱 초보 추천</button><button id="presetChaos" class="btn secondary">🌀 혼돈 추천</button></div><div class="hint">선택한 인원에 맞춰 전체 구성을 바꿉니다. 초보는 기본 추리 중심, 혼돈은 도플갱어·카드 교환 중심입니다.</div>':''}<div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
       <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도 또는 말썽쟁이와 함께 사용하는 공식 구성을 따릅니다.</div>
-      <div class="section-title">밤 나레이션</div>
+      <div class="hint">밤 행동은 음성 안내 뒤 5초 고정입니다. 시간 초과 시 선택 행동은 건너뛰고 필수 복사·교환은 무작위 처리됩니다. 확인 화면도 5초가 지나면 닫힙니다.</div><div class="section-title">밤 나레이션</div>
       <div class="hint">방장 폰의 음성이 밤 순서와 동기화됩니다. 다른 폰의 음성은 필요할 때만 보조로 켜세요.</div>
       <div class="row"><button id="narrationToggle" class="btn secondary">${state.narrationEnabled?'🔊 이 폰 나레이션 켜짐':'🔇 이 폰 나레이션 꺼짐'}</button><button id="narrationTest" class="btn secondary">음성 테스트</button></div>
       ${isHost()?`
@@ -259,6 +259,16 @@ function roleIcons(p){return p.copiedEmoji?`${p.emoji} <span class="copy-arrow">
 function playerChoices(players,max){return `<div class="choice-list">${players.map(x=>`<button class="choice" data-player="${x.id}">${esc(x.name)}</button>`).join('')}</div><div class="counter">${max===2?'2명 선택':'1명 선택'}</div>`}
 function centerButtons(max){return `<div class="center-cards">${[0,1,2].map(i=>`<button class="center-card" data-center="${i}">?</button>`).join('')}</div><div class="counter">${max===2?'2장 선택':'1장 선택'}</div>`}
 
+
+let nightClockInt=null;
+function nightClockHtml(){return '<div id="nightClock" class="night-clock" role="timer"></div>';}
+function startNightClock(endsAt=state.room?.nightActionEndsAt){
+  clearInterval(nightClockInt);
+  if(!endsAt)return;
+  const tick=()=>{const el=document.getElementById('nightClock');if(!el){clearInterval(nightClockInt);return;}el.textContent='남은 시간 '+Math.max(0,Math.ceil((endsAt-Date.now())/1000))+'초 · 끝나면 자동 진행';};
+  tick();nightClockInt=setInterval(tick,100);
+}
+
 function renderNight(){
   const p=state.nightPrompt;
   if(!p)return renderWaiting();
@@ -287,7 +297,8 @@ function renderNight(){
     extra=`<div class="hint">${esc(p.instructions)}</div><div class="result-banner">현재 보이는 카드: ${p.currentCard.emoji} ${esc(p.currentCard.name)}</div>`;
   }
 
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">밤 행동</div><div class="role-card compact"><div class="bigemoji compact-emoji">${roleIcons(p)}</div><div class="rolename compact-name">${esc(p.roleName)}</div></div>${extra}<button id="act" class="btn">${nightButtonText(p)}</button>${p.skipAllowed?'<button id="skip" class="btn ghost">이번 행동 건너뛰기</button>':''}</div>`);
+  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">밤 행동</div>${nightClockHtml()}<div class="role-card compact"><div class="bigemoji compact-emoji">${roleIcons(p)}</div><div class="rolename compact-name">${esc(p.roleName)}</div></div>${extra}<button id="act" class="btn">${nightButtonText(p)}</button>${p.skipAllowed?'<button id="skip" class="btn ghost">이번 행동 건너뛰기</button>':''}</div>`);
+  startNightClock(p.endsAt);
   setupNightSelectors(p);
   document.getElementById('act').onclick=()=>submitNight(p,false);
   if(p.skipAllowed)document.getElementById('skip').onclick=()=>submitNight(p,true);
@@ -355,6 +366,7 @@ function submitNight(p,skip){
   const actionRole=actionRoleOf(p);
   const type=actionRole==='seer'?state.seerMode:null;
   socket.emit('night:action',{type,targets,centerIndexes,skip:!!skip},res=>{
+    if(state.room?.phase!=='night'||state.nightPrompt!==p)return;
     if(!res?.ok){if(btn)btn.disabled=false;return toast(res?.error||'선택을 확인하세요.');}
     state.nightPrompt=null;
     if(res.requiresAck || res.seen?.length || res.extraText){
@@ -367,7 +379,8 @@ function submitNight(p,skip){
 function renderNightReveal(payload){
   state.nightReveal=payload;
   const cards=(payload.seen||[]).map(x=>`<div class="seen-card"><div class="seen-emoji">${x.emoji}</div><div>${esc(x.name)}</div></div>`).join('');
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">확인 결과</div>${cards?`<div class="seen-grid">${cards}</div>`:''}${payload.extraText?`<div class="result-banner">${esc(payload.extraText)}</div>`:''}<div class="hint center">이 정보는 본인만 확인하세요.</div><button id="ackReveal" class="btn">${payload.nextPrompt?'복사한 역할 행동하기':'확인 완료 · 눈 감기'}</button></div>`);
+  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">확인 결과</div>${nightClockHtml()}${cards?`<div class="seen-grid">${cards}</div>`:''}${payload.extraText?`<div class="result-banner">${esc(payload.extraText)}</div>`:''}<div class="hint center">이 정보는 본인만 확인하세요.</div><button id="ackReveal" class="btn">${payload.nextPrompt?'복사한 역할 행동하기':'확인 완료 · 눈 감기'}</button></div>`);
+  startNightClock();
   document.getElementById('ackReveal').onclick=()=>{state.nightReveal=null;state.nightPrompt=null;renderWaiting('밤이 계속 진행 중입니다…');socket.emit('night:ack');};
 }
 
@@ -473,7 +486,7 @@ socket.on('role:reveal',role=>{state.role=role;state.nightPrompt=null;state.nigh
 socket.on('night:waiting',({message})=>{state.nightPrompt=null;state.nightReveal=null;renderWaiting(message);});
 socket.on('night:prompt',prompt=>{state.nightReveal=null;state.nightPrompt=prompt;renderNight();});
 socket.on('night:reveal',payload=>{state.nightPrompt=null;renderNightReveal(payload);});
-socket.on('night:done',()=>{state.nightPrompt=null;state.nightReveal=null;});
+socket.on('night:done',()=>{clearInterval(nightClockInt);state.nightPrompt=null;state.nightReveal=null;if(state.room?.phase==='night')renderWaiting('확인 시간이 끝났습니다. 눈을 감아 주세요.');});
 socket.on('discussion:start',()=>{state.nightPrompt=null;});
 socket.on('voting:start',()=>{state.voted=null;});
 socket.on('game:result',r=>{state.result=r;renderResult();});
