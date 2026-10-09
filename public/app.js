@@ -129,6 +129,7 @@ function renderHome(){
   clearInterval(timerInt);
   app.innerHTML=shell(`
     <div class="brand"><div class="moon">🌕🐺</div><h1>한밤의 늑대인간</h1><div class="subtitle">친구들끼리 각자 휴대폰으로 한 판</div></div>
+    <a class="btn secondary" href="https://midnight-werewolf-daybreak.onrender.com/">🌅 Daybreak 확장판으로 가기</a>
     <div class="card"><h2>게임 시작</h2>
       <input id="name" class="input" maxlength="12" placeholder="닉네임" autocomplete="off" />
       <button id="create" class="btn">방 만들기</button>
