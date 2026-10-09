@@ -16,7 +16,7 @@ function notify(r){for(const res of [...r.clients]){try{res.write('data: refresh
 function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();notify(r);}
 function publicState(r,p){
  return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,
- isHost:r.players[0]===p,
+ isHost:p.token===r.hostToken,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,
  trick:r.trick?{by:r.trick.by,ids:r.trick.ids,name:r.trick.ev.name}:null,
@@ -39,7 +39,7 @@ function scoring(r,winner){
  touch(r,r.players[winner].name+'님이 패를 모두 내고 '+r.round+'라운드 승리!');
 }
 function action(b){
- const [r,p]=auth(b),host=()=>assert(p===r.players[0],'방장만 할 수 있어요.');
+ const [r,p]=auth(b),host=()=>assert(p.token===r.hostToken,'방장만 할 수 있어요.');
  const next=i=>(i+1)%4;
  if(b.type==='ready'){
   assert(r.stage==='lobby','대기실에서만 준비할 수 있어요.');p.ready=!!b.ready;touch(r);
@@ -80,7 +80,7 @@ function action(b){
   if(!p.hand.length)scoring(r,p.seat);
  }else if(b.type==='leave'){
   assert(r.stage==='lobby','진행 중에는 나갈 수 없어요.');
-  r.players=r.players.filter(q=>q!==p);r.players.forEach((q,i)=>q.seat=i);
+  r.players=r.players.filter(q=>q!==p);r.players.forEach((q,i)=>q.seat=i);if(r.hostToken===p.token&&r.players.length)r.hostToken=r.players[0].token;
   if(!r.players.length)rooms.delete(r.code);else touch(r,p.name+'님이 나갔습니다.');
   return {left:true};
  }else assert(false,'잘못된 요청입니다.');
@@ -102,7 +102,7 @@ const server=http.createServer(async(req,res)=>{
    const b=await data(req),name=String(b.name||'').trim().slice(0,14);
    assert(name,'닉네임을 적어 주세요.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
-   const r={code:c,players:[p],stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
+   const r={code:c,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
    rooms.set(c,r);return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
