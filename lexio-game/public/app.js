@@ -78,7 +78,7 @@ function playersList(){
 function center(){
  const tr=state.trick;
  return '<section class="tabletop"><div class="status">'+(state.stage==='playing'?'🎲 <strong>'+html(state.players[state.turn].name)+'</strong>의 차례':'라운드 종료')+'</div>'+
- (tr?'<h2>현재 족보 · '+html(tr.name)+' ('+tr.ids.length+'장)</h2><div class="tiles">'+tr.ids.map(id=>tileView(id,{short:true})).join('')+'</div><small>'+html(state.players[tr.by].name)+'님이 낸 타일 · 연속 패스 '+state.passes+'/'+(state.size-1)</small>':
+ (tr?'<h2>현재 족보 · '+html(tr.name)+' ('+tr.ids.length+'장)</h2><div class="tiles">'+tr.ids.map(id=>tileView(id,{short:true})).join('')+'</div><small>'+html(state.players[tr.by].name)+'님이 낸 타일 · 연속 패스 '+state.passes+'/'+(state.size-1)+'</small>':
  '<h2>🟡 새 선 플레이어가 자유롭게 냅니다</h2><div class="tiles"><span class="pill">싱글 · 페어 · 트리플 · 메이드</span></div>')+'</section>';
 }
 function hand(){
