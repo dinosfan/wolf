@@ -12,6 +12,7 @@
   <main id="app"></main>
   <dialog id="roleGuide" class="role-guide" aria-labelledby="roleGuideTitle"><div class="guide-header"><h2 id="roleGuideTitle">캐릭터 능력 안내</h2><form method="dialog"><button class="mini-btn" aria-label="안내 닫기" autofocus>닫기 ✕</button></form></div><div id="roleGuideContent"></div></dialog>
   <dialog id="inviteDialog" class="role-guide" aria-labelledby="inviteTitle"><div class="guide-header"><h2 id="inviteTitle">친구 초대</h2><form method="dialog"><button class="mini-btn" autofocus>닫기 ✕</button></form></div><div id="inviteQR" class="invite-qr"></div><p class="hint">QR을 스캔하거나 링크로 들어오면 방 코드가 자동으로 입력됩니다. 닉네임 입력 후 참가하세요.</p><input id="inviteLink" class="input" aria-label="초대 링크" readonly><div class="row"><button id="copyInvite" class="btn secondary">링크 복사</button><button id="shareInvite" class="btn">공유하기</button></div></dialog>
+  <dialog id="closeRoomDialog" class="role-guide" aria-labelledby="closeRoomTitle"><h2 id="closeRoomTitle">방을 종료할까요?</h2><p>진행 중인 게임이 취소되고 모든 참가자가 처음 화면으로 돌아갑니다.</p><form method="dialog"><button class="btn secondary" autofocus>계속 게임하기</button></form><button id="confirmCloseRoom" class="btn room-close-confirm">방 종료 · 모두 내보내기</button></dialog>
   <div id="toast" class="toast"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/vendor/qrcode.min.js"></script>

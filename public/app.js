@@ -56,7 +56,7 @@ function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function me(){return state.room?.players.find(p=>p.id===state.myId)}
 function isHost(){return state.room?.hostId===state.myId}
 function shell(inner){return `<div class="shell">${inner}</div>`}
-function topbar(){return state.room?`<div class="topbar"><span class="badge">🌙 한밤의 늑대인간</span><div class="room-tools"><span class="smallcode">${state.room.code}</span><button class="info-button" data-role-guide aria-label="모든 캐릭터 능력 안내">ⓘ</button></div></div>`:''}
+function topbar(){return state.room?`<div class="topbar"><span class="badge">🌙 한밤의 늑대인간</span><div class="room-tools">${isHost()?'<button class="room-close-button" data-close-room aria-label="방 종료">종료</button>':''}<span class="smallcode">${state.room.code}</span><button class="info-button" data-role-guide aria-label="모든 캐릭터 능력 안내">ⓘ</button></div></div>`:''}
 
 
 function openRoleGuide(){
@@ -109,7 +109,7 @@ function speakNarration(text,{test=false}={}){
       return;
     }
     const u=new SpeechSynthesisUtterance(String(text));
-    u.lang='ko-KR';u.rate=0.94;u.pitch=1;u.volume=1;
+    u.lang='ko-KR';u.rate=1.15;u.pitch=1;u.volume=1;
     const v=koreanVoice();if(v)u.voice=v;
     let done=false;
     const finish=()=>{if(done)return;done=true;clearTimeout(fallback);resolve();};
@@ -160,13 +160,25 @@ function renderHome(){
 }
 
 function countRoles(roles){const c={};roles.forEach(r=>c[r]=(c[r]||0)+1);return c}
+
+function resetToHome(){
+  clearInterval(timerInt);localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
+  releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
+  document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+  state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
+  renderHome();
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest?.('[data-close-room]') || !isHost())return;
+  document.getElementById('closeRoomDialog').showModal();
+  document.getElementById('confirmCloseRoom').onclick=()=>socket.emit('room:close',{},res=>{if(!res?.ok)toast(res?.error||'방을 종료할 수 없습니다.');});
+});
+socket.on('room:closed',payload=>{resetToHome();toast(payload?.message||'방이 종료되었습니다.');});
+
 function leaveRoom(){
   socket.emit('room:leave',{},res=>{
     if(!res?.ok)return toast(res?.error||'방을 나갈 수 없습니다.');
-    localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
-    releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
-    state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
-    renderHome();
+    resetToHome();
   });
 }
 function renderLobby(){

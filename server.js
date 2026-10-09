@@ -21,6 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 const rooms = new Map();
+const liveSockets = new Map();
 
 const NIGHT_ORDER = [
   'doppelganger', 'werewolf', 'minion', 'mason', 'seer', 'robber',
@@ -72,16 +73,16 @@ const NARRATION = {
 };
 
 const MIN_ACTION_MS = {
-  doppelganger: 12000,
-  werewolf: 8000,
-  minion: 7000,
-  mason: 7000,
-  seer: 10000,
-  robber: 9000,
-  troublemaker: 9000,
-  drunk: 8000,
-  insomniac: 6500,
-  doppel_insomniac: 6500
+  doppelganger: 3000,
+  werewolf: 3000,
+  minion: 3000,
+  mason: 3000,
+  seer: 3000,
+  robber: 3000,
+  troublemaker: 3000,
+  drunk: 3000,
+  insomniac: 3000,
+  doppel_insomniac: 3000
 };
 
 function token() {
@@ -761,6 +762,15 @@ function castVote(room, playerId, targetId, cb) {
 }
 
 io.on('connection', socket => {
+  liveSockets.set(socket.id,socket);
+  socket.on('room:close', (_,cb) => {
+    const room=getRoomOf(socket);
+    if(!room || room.hostId!==socket.id) return cb?.({ok:false,error:'방장만 방을 종료할 수 있습니다.'});
+    room.phase='closed';clearNightTimers(room);clearTimeout(room.discussionTimer);room.narrationCue=null;
+    io.to(room.code).emit('room:closed',{message:'방장이 방을 종료했습니다.'});
+    for(const player of room.players){const member=liveSockets.get(player.id);if(member){member.leave(room.code);member.data.roomCode=null;}}
+    rooms.delete(room.code);cb?.({ok:true});
+  });
   socket.on('room:create', ({ name }, cb) => {
     if (getRoomOf(socket)) return cb?.({ ok: false, error: '현재 방을 먼저 나가주세요.' });
     const code = code4();
@@ -1056,6 +1066,7 @@ io.on('connection', socket => {
   });
 
   socket.on('disconnect', () => {
+    liveSockets.delete(socket.id);
     const room = getRoomOf(socket);
     if (!room) return;
     const p = room.players.find(x => x.id === socket.id);
