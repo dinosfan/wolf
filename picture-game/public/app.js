@@ -8,19 +8,33 @@ const badge=t.shown&&c!=='assassin'?'<b>'+colors[c]+'</b>':'';
 return '<button type="button" class="tile '+(t.shown?'shown':'')+colorClass+'" onclick="openTile('+i+')" aria-label="그림 '+(i+1)+(visible&&c?' '+colors[c]:'')+'">'+art(t.art)+danger+badge+'</button>';
 }).join('')+'</div>';
 }function game(){
-const spy=s.me.role==='spy',mine=s.me.team===s.turn,over=s.stage==='over';
-const status=over?'<div class="card"><h1>'+colors[s.winner]+' 팀 승리!</h1><p>'+esc(s.reason)+'</p></div>'+(s.host?'<button class="full" onclick="act(\'reset\')">다음 판 시작</button>':'<p>방장이 다음 판을 준비해요.</p>'):(
-mine?(spy?'<div class="notice">🎙️ 같은 팀 요원에게 <strong>말로</strong> 힌트를 주세요. 암살자(☠)는 절대 고르면 안 돼요.</div>':'<div class="notice">👆 힌트를 듣고 그림을 선택하세요. 맞히면 이어서 선택하거나 턴을 넘길 수 있어요.</div>'):'<div class="notice">상대 팀 차례예요. 힌트와 그림 선택이 끝나길 기다려 주세요.</div>')+
-(mine?'<button class="full turn-pass" onclick="act(\'end\')">턴 넘기기 → '+colors[s.turn==='red'?'blue':'red']+' 팀</button>':'');
-const legend=spy&&!over?'<div class="legend"><span><i class="legend-red"></i> 빨강</span><span><i class="legend-blue"></i> 파랑</span><span><i class="legend-neutral"></i> 중립</span><span><i class="legend-assassin">☠</i> 암살자</span></div><p class="spy-warning">🔒 스파이마스터 전용 정답 화면 · 옆 사람에게 보이지 않게 해주세요.</p>':'';
+const spy=s.me.role==='spy',agent=s.me.role==='agent',mine=s.me.team===s.turn,over=s.stage==='over';
+const remaining=s.remaining[s.turn];
+const isUnlimited=s.clueNumber===0||s.clueNumber==='unlimited';
+const max=isUnlimited?Infinity:s.clueNumber+1;
+const progress=(isUnlimited?'무제한':max+'회 중 '+s.used+'회')+(s.clueNumber>0&&s.used>=s.clueNumber?' · 추가 1회 사용 중':'');
+let status='';
+if(over){
+ status='<div class="card"><h1>'+colors[s.winner]+' 팀 승리!</h1><p>'+esc(s.reason)+'</p></div>'+(s.host?'<button class="full" onclick="act(\'reset\')">다음 판 준비</button>':'<p>방장이 다음 판을 준비해요.</p>');
+}else if(s.stage==='clue'){
+ if(mine&&spy){
+  const nums=Array.from({length:remaining},(_,i)=>i+1).map(n=>'<button type="button" class="number-choice" onclick="act(\'setCount\',{number:'+n+'})">'+n+'</button>').join('');
+  status='<div class="card"><h2>🎙️ 말로 힌트를 주세요</h2><p>한 단어와 숫자를 친구에게 직접 말한 다음, <strong>말한 숫자만</strong> 눌러 추리 차례를 시작하세요.</p><div class="count-grid">'+nums+'<button class="number-choice secondary" onclick="act(\'setCount\',{number:0})">0</button><button class="number-choice secondary" onclick="act(\'setCount\',{number:\'unlimited\'})">∞</button></div><p class="muted">일반 숫자: 최대 숫자+1장 · 0과 ∞: 제한 없음</p></div>';
+ }else{
+  status='<div class="notice">'+(mine?'같은 팀 스파이마스터가 힌트를 말하고 숫자를 선택하는 중이에요.':'상대 팀이 힌트를 준비하고 있어요.')+'</div>';
+ }
+}else{
+ status='<div class="card"><h2>그림 선택 차례</h2><p>힌트와 숫자는 방금 말로 전달됐어요.</p><div class="guess-progress"><strong>힌트 숫자: '+(s.clueNumber==='unlimited'?'∞':s.clueNumber)+'</strong><span>선택 '+progress+'</span></div>'+(mine&&agent?(s.used>=1?'<button class="full turn-pass" onclick="act(\'end\')">추측 종료 · 상대 팀 턴으로 →</button>':'<p>최소 한 장은 골라야 턴을 끝낼 수 있어요.</p>'):'<p>'+(mine?'우리 팀 요원이 그림을 고르는 중이에요.':'상대 팀이 그림을 고르는 중이에요.')+'</p>')+'</div>';
+}
+const legend=spy&&!over?'<div class="legend"><span><i class="legend-red"></i> 빨강</span><span><i class="legend-blue"></i> 파랑</span><span><i class="legend-neutral"></i> 중립</span><span><i class="legend-assassin">☠</i> 암살자</span></div><p class="spy-warning">🔒 스파이마스터 전용 정답 화면 · 요원에게 보여주지 마세요.</p>':'';
 el.innerHTML=header()+'<div class="score"><span class="red">🔴 '+s.remaining.red+'</span><b>'+colors[s.turn]+' 팀 차례</b><span class="blue">🔵 '+s.remaining.blue+'</span></div><p>'+colors[s.me.team]+' 팀 · '+(spy?'스파이마스터 (정답 공개)':'추리 요원 (정답 비공개)')+' · '+s.round+'판</p>'+legend+board()+status;
 }function render(){if(!s)welcome();else if(s.stage==='lobby')lobby();else game()}async function act(type,more={}){try{const r=await req('/api/action',{...session,type,...more});if(r.left){localStorage.removeItem('picture-session');session=null;s=null;events?.close();history.replaceState(null,'','/')}else{s=r;}render()}catch(e){tell(e)}}async function refresh(){if(!session)return;try{s=await req('/api/state?code='+encodeURIComponent(session.code)+'&token='+encodeURIComponent(session.token));render()}catch(e){if(/로그인|방을 찾지/.test(e.message)){localStorage.removeItem('picture-session');session=null;s=null;events?.close();render()}}}function connect(){events?.close();events=new EventSource('/api/events?code='+encodeURIComponent(session.code)+'&token='+encodeURIComponent(session.token));events.onmessage=refresh}function openTile(i){
-const t=s.board[i],can=s.stage==='play'&&s.turn===s.me.team&&s.me.role==='agent'&&!t.shown;
+const t=s.board[i],can=s.stage==='guess'&&s.turn===s.me.team&&s.me.role==='agent'&&!t.shown;
 const known=(t.shown||s.me.role==='spy'||s.stage==='over')&&t.color;
 const label=known?(t.color==='assassin'?'☠ 암살자 — 고르면 즉시 패배!':'카드 정답: '+colors[t.color]):'';
 modal.hidden=false;
 modal.innerHTML='<div class="dialog"><h2>그림 '+(i+1)+'</h2><div class="art">'+art(t.art)+'</div>'+(label?'<p class="card-info '+(t.color==='assassin'?'warning':'')+'">'+label+'</p>':'')+(can?'<button class="full" onclick="modal.hidden=true;act(\'guess\',{index:'+i+'})">이 그림 선택하기</button>':(!known?'<p>선택할 팀 차례가 아니에요.</p>':''))+'<button class="secondary full" onclick="modal.hidden=true">닫기</button></div>';
 }async function copy(){let url=location.origin+'/?room='+s.code;try{await navigator.clipboard.writeText(url);alert('초대 링크 복사 완료')}catch{prompt('초대 링크',url)}}function leave(){if(confirm('방을 나갈까요?'))act('leave')}function rules(){
 modal.hidden=false;
-modal.innerHTML='<div class="dialog"><h2>게임 규칙 · 말로 힌트</h2><p>4명이 빨강·파랑 두 팀으로 나뉩니다. 팀마다 스파이마스터 한 명과 추리 요원 한 명이 있어요.</p><p>스파이마스터에게는 모든 카드의 정답 색이 자동으로 보입니다. <strong>검정 ☠ = 암살자</strong>로, 요원이 선택하면 즉시 패배합니다. 요원에게는 정답이 보이지 않습니다.</p><p>힌트와 숫자를 입력할 필요 없이 <strong>말로 힌트를 주고</strong> 요원이 카드 그림을 누릅니다. 자기 팀 카드를 맞히면 계속 선택할 수 있고, 원할 때 언제든지 <strong>턴 넘기기</strong>를 누르면 됩니다.</p><p>상대 팀 또는 중립 카드를 고르면 자동으로 턴이 넘어갑니다. 암살자를 고르면 즉시 패배하며, 자기 팀 카드를 모두 찾으면 승리합니다.</p><p>※ 원작의 숫자·추측 횟수 제한을 없앤 간편 규칙입니다.</p><button class="full" onclick="modal.hidden=true">닫기</button></div>';
+modal.innerHTML='<div class="dialog"><h2>코드네임 픽처스 규칙</h2><p>4명이 빨강·파랑 팀으로 나뉘며 팀마다 스파이마스터와 추리 요원 한 명씩 있습니다.</p><p>스파이마스터는 한 단어와 숫자를 <strong>말로</strong> 알려줍니다. 말한 뒤 숫자 버튼만 눌러 추리를 시작합니다.</p><p>요원은 한 턴에 <strong>최소 1장, 최대 힌트 숫자+1장</strong>을 선택할 수 있습니다. 자기 팀 그림을 맞히면 계속 고를 수 있고, 한 장 이상 선택한 뒤 원할 때 멈출 수 있습니다. 선택 한도에 도달하면 자동으로 턴이 넘어갑니다.</p><p>상대 팀이나 중립 카드를 고르면 즉시 턴이 끝나고, ☠ 암살자를 선택하면 즉시 패배합니다. 자기 팀 그림을 모두 찾으면 승리합니다.</p><p>고급 규칙: 0 또는 ∞ 힌트는 횟수 제한 없이 정답을 계속 선택할 수 있지만, 첫 그림은 반드시 골라야 합니다.</p><p>선공 팀은 8장, 후공 팀은 7장을 찾으며 5×4 그림판을 사용합니다. 공식 기본 암살자 규칙을 적용하고, 별도의 암살자 엔딩 변형 규칙은 적용하지 않습니다.</p><button class="full" onclick="modal.hidden=true">닫기</button></div>';
 }if(session){refresh().then(()=>{if(session)connect()})}else render();setInterval(()=>{if(session&&!document.hidden)refresh()},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
