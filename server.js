@@ -73,16 +73,16 @@ const NARRATION = {
 };
 
 const MIN_ACTION_MS = {
-  doppelganger: 5000,
-  werewolf: 5000,
-  minion: 5000,
-  mason: 5000,
-  seer: 5000,
-  robber: 5000,
-  troublemaker: 5000,
-  drunk: 5000,
-  insomniac: 5000,
-  doppel_insomniac: 5000
+  doppelganger: 10000,
+  werewolf: 10000,
+  minion: 10000,
+  mason: 10000,
+  seer: 10000,
+  robber: 10000,
+  troublemaker: 10000,
+  drunk: 10000,
+  insomniac: 10000,
+  doppel_insomniac: 10000
 };
 
 function token() {
@@ -472,7 +472,7 @@ function openActionWindow(room, step, actors) {
   room.actionWindowOpen = true;
   room.minimumActionElapsed = false;
   room.actionWindowStartedAt = Date.now();
-  room.nightActionEndsAt=fastBotGame(room)?null:Date.now()+5000;
+  room.nightActionEndsAt=fastBotGame(room)?null:Date.now()+10000;
 
   actors.forEach(p => sendNightPrompt(room, p, buildNightPrompt(room, p, step)));
   room.players.filter(p => !room.pendingActors.has(p.id)).forEach(p => {

@@ -203,7 +203,7 @@ function renderLobby(){
       ${isHost()?`<select id="discussion" class="input" aria-label="토론 시간">${[1,2,3,4,5,7,10].map(m=>`<option value="${m*60}">${m}분</option>`).join('')}</select>`:`<div>${Math.round((room.discussionSeconds||240)/60)}분 · 방장이 설정</div>`}
     </div><div class="card"><h2>역할 구성</h2>${isHost()?'<div class="row"><button id="presetBeginner" class="btn secondary">🌱 초보 추천</button><button id="presetChaos" class="btn secondary">🌀 혼돈 추천</button></div><div class="hint">선택한 인원에 맞춰 전체 구성을 바꿉니다. 초보는 기본 추리 중심, 혼돈은 도플갱어·카드 교환 중심입니다.</div>':''}<div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
       <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도 또는 말썽쟁이와 함께 사용하는 공식 구성을 따릅니다.</div>
-      <div class="hint">밤 행동은 음성 안내 뒤 5초 고정입니다. 시간 초과 시 선택 행동은 건너뛰고 필수 복사·교환은 무작위 처리됩니다. 확인 화면도 5초가 지나면 닫힙니다.</div><div class="section-title">밤 나레이션</div>
+      <div class="hint">밤 행동은 음성 안내 뒤 10초 고정입니다. 시간 초과 시 선택 행동은 건너뛰고 필수 복사·교환은 무작위 처리됩니다. 확인 화면도 10초가 지나면 닫힙니다.</div><div class="section-title">밤 나레이션</div>
       <div class="hint">방장 폰의 음성이 밤 순서와 동기화됩니다. 다른 폰의 음성은 필요할 때만 보조로 켜세요.</div>
       <div class="row"><button id="narrationToggle" class="btn secondary">${state.narrationEnabled?'🔊 이 폰 나레이션 켜짐':'🔇 이 폰 나레이션 꺼짐'}</button><button id="narrationTest" class="btn secondary">음성 테스트</button></div>
       ${isHost()?`
