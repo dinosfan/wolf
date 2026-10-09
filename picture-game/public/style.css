@@ -23,3 +23,11 @@
 .card-info{margin:10px 0;padding:10px;border-radius:10px;background:#334866;font-weight:800}
 .card-info.warning{background:#080b13;color:#ffe6aa;border:2px solid #f1cb77}
 .turn-pass{margin-top:10px;font-size:17px;min-height:54px}
+
+/* Original clue-number rule controls */
+.count-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:15px 0}
+.count-grid .number-choice{font-size:20px;min-height:54px;padding:10px 0;font-variant-numeric:tabular-nums}
+.guess-progress{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:11px;background:#12243b;border-radius:10px;color:#fff}
+.guess-progress strong{color:#ffdc90;font-size:18px}
+.guess-progress span{font-weight:700;font-variant-numeric:tabular-nums}
+@media(max-width:380px){.count-grid{gap:5px}.count-grid .number-choice{min-height:48px}}
