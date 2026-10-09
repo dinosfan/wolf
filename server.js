@@ -73,16 +73,16 @@ const NARRATION = {
 };
 
 const MIN_ACTION_MS = {
-  doppelganger: 3000,
-  werewolf: 3000,
-  minion: 3000,
-  mason: 3000,
-  seer: 3000,
-  robber: 3000,
-  troublemaker: 3000,
-  drunk: 3000,
-  insomniac: 3000,
-  doppel_insomniac: 3000
+  doppelganger: 5000,
+  werewolf: 5000,
+  minion: 5000,
+  mason: 5000,
+  seer: 5000,
+  robber: 5000,
+  troublemaker: 5000,
+  drunk: 5000,
+  insomniac: 5000,
+  doppel_insomniac: 5000
 };
 
 function token() {
