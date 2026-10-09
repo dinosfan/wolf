@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: midnight-werewolf-mobile
+    name: midnight-werewolf-daybreak
     runtime: node
     region: singapore
     plan: free

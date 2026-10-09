@@ -15,13 +15,16 @@ const ROLE_INFO = {
   villager: { name: '주민', team: 'village', emoji: '🏠', max: 3, order: 100 }
 };
 
+Object.assign(ROLE_INFO,require('./public/daybreak-info').DAYBREAK_ROLES);
+const isWerewolf=role=>['werewolf','alpha_wolf','mystic_wolf','dream_wolf'].includes(role);
+
 function makeCard(role, id) {
   return { id, role, doppelRole: null };
 }
 
 function effectiveRole(card) {
   if (!card) return null;
-  return card.role === 'doppelganger' && card.doppelRole ? card.doppelRole : card.role;
+  return card.artifactRole || card.piRole || (card.role === 'doppelganger' && card.doppelRole ? card.doppelRole : card.role);
 }
 
 // What a player physically sees when looking at a card during the night.
@@ -49,7 +52,8 @@ function finalRoleView(card) {
     physicalName: physical.name,
     physicalEmoji: physical.emoji,
     copiedRole: card.role === 'doppelganger' ? card.doppelRole : null,
-    displayName: card.role === 'doppelganger' && card.doppelRole ? `도플갱어 → ${info.name}` : info.name
+    displayName: card.artifactRole ? `${physical.name} → 유물: ${info.name}` : card.piRole ? `${physical.name} → ${info.name}` : card.role === 'doppelganger' && card.doppelRole ? `도플갱어 → ${info.name}` : info.name,
+    transformedRole:card.piRole||null, artifactRole:card.artifactRole||null
   };
 }
 
@@ -70,7 +74,7 @@ function validateRoleSelection(roles, playerCount) {
   // Official rule: when Masons are used, both Mason cards are put in the game.
   if ((counts.mason || 0) === 1) return { ok: false, error: '석공을 사용할 때는 석공 카드 2장을 모두 넣어야 합니다.' };
   // Official role guidance: Insomniac is used with Robber and/or Troublemaker.
-  if ((counts.insomniac || 0) > 0 && !(counts.robber || counts.troublemaker)) {
+  if ((counts.insomniac || 0) > 0 && !(counts.robber || counts.troublemaker || counts.witch || counts.village_idiot || counts.alpha_wolf)) {
     return { ok: false, error: '불면증 환자를 넣을 때는 강도 또는 말썽쟁이도 함께 넣어주세요.' };
   }
   return { ok: true };
@@ -87,28 +91,22 @@ function computeBaseDeaths(players) {
 }
 
 function computeDeathsWithHunter(players, getCard) {
-  const killed = new Set(computeBaseDeaths(players));
-  const queue = [...killed];
-  while (queue.length) {
-    const id = queue.shift();
-    const player = players.find(p => p.id === id);
-    const card = getCard(id);
-    if (!player || effectiveRole(card) !== 'hunter' || !player.vote) continue;
-    if (!killed.has(player.vote)) {
-      killed.add(player.vote);
-      queue.push(player.vote); // Hunter killing another Hunter can chain again.
-    }
-  }
+  const protectedIds=new Set(players.filter(p=>effectiveRole(getCard(p.id))==='bodyguard').map(p=>p.vote));
+  const counts=new Map();for(const p of players)if(p.vote&&!protectedIds.has(p.vote))counts.set(p.vote,(counts.get(p.vote)||0)+1);
+  const highest=counts.size?Math.max(...counts.values()):0;
+  const killed=new Set(highest>=2?[...counts].filter(([,n])=>n===highest).map(([id])=>id):[]);
+  const queue=[...killed];
+  while(queue.length){const id=queue.shift(),p=players.find(x=>x.id===id);if(effectiveRole(getCard(id))==='hunter'&&p?.vote&&!protectedIds.has(p.vote)&&!killed.has(p.vote)){killed.add(p.vote);queue.push(p.vote);}}
   return [...killed];
 }
 
 function resolveOutcome(players, getCard) {
   const killedIds = computeDeathsWithHunter(players, getCard);
   const rows = players.map(player => ({ player, card: getCard(player.id), role: effectiveRole(getCard(player.id)) }));
-  const wolves = rows.filter(x => x.role === 'werewolf');
+  const wolves = rows.filter(x => isWerewolf(x.role));
   const minions = rows.filter(x => x.role === 'minion');
   const villageMembers = rows.filter(x => ROLE_INFO[x.role]?.team === 'village');
-  const wolfMembers = rows.filter(x => ['werewolf','minion'].includes(x.role));
+  const wolfMembers = rows.filter(x => isWerewolf(x.role)||x.role==='minion');
   const deadWolves = wolves.filter(x => killedIds.includes(x.player.id));
   const deadTanners = rows.filter(x => x.role === 'tanner' && killedIds.includes(x.player.id));
 
@@ -167,6 +165,7 @@ function resolveOutcome(players, getCard) {
 
 module.exports = {
   ROLE_INFO,
+  isWerewolf,
   makeCard,
   effectiveRole,
   cardFaceView,

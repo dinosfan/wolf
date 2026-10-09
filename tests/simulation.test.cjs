@@ -3,7 +3,7 @@ const assert=require('assert'),fs=require('fs'),vm=require('vm');
 const {harness,root}=require('./simulation-harness.cjs');
 const E=require(root+'/game-engine.js');
 let count=0;const coverage={roles:{},copied:{},steps:{},reconnect:0,teams:{}};
-const roles=Object.keys(E.ROLE_INFO);
+const roles=Object.keys(E.ROLE_INFO).filter(k=>!require('../public/daybreak-info').DAYBREAK_ROLES[k]);
 let seed=872412;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
 const pick=a=>a[Math.floor(random()*a.length)];
 function shuffled(a){return [...a].sort(()=>random()-.5)}

@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const {
   ROLE_INFO,
+  isWerewolf,
   makeCard,
   effectiveRole,
   cardFaceView,
@@ -23,11 +24,10 @@ const PORT = process.env.PORT || 3000;
 const rooms = new Map();
 const liveSockets = new Map();
 
-const NIGHT_ORDER = [
-  'doppelganger', 'werewolf', 'minion', 'mason', 'seer', 'robber',
-  'troublemaker', 'drunk', 'insomniac', 'doppel_insomniac'
-];
-
+const NIGHT_ORDER=['sentinel','doppelganger','werewolf','alpha_wolf','mystic_wolf','minion','mason','seer','apprentice_seer','investigator','robber','witch','troublemaker','village_idiot','drunk','insomniac','doppel_insomniac','revealer','doppel_revealer','curator','doppel_curator'];
+const DB=require('./daybreak-actions')({ROLE_INFO,cardFaceView,finalRoleView,isWerewolf,finishWithReveal,finishWithoutReveal,recordSwap,genericActionPrompt,werewolfActors});
+const IMMEDIATE_COPY=['seer','robber','troublemaker','drunk','sentinel','alpha_wolf','mystic_wolf','apprentice_seer','investigator','witch','village_idiot'];
+function outcomeCard(room,id){const card=room.currentCards.get(id),artifact=DB.artifacts[room.artifacts?.get(id)];return artifact?.role?{...card,artifactRole:artifact.role}:card;}
 // Korean paraphrases of the rules, not copied audio/text from the official app.
 const NARRATION = {
   doppelganger: {
@@ -71,6 +71,9 @@ const NARRATION = {
     end: '해당 도플갱어는 다시 눈을 감아 주세요.'
   }
 };
+
+for(const [role,info] of Object.entries(DB.roles))if(!['dream_wolf','bodyguard'].includes(role))NARRATION[role]={start:info.name+'는 눈을 뜨세요. '+info.desc,end:info.name+'는 눈을 감아 주세요.'};
+for(const role of ['revealer','curator'])NARRATION['doppel_'+role]={start:'도플갱어가 '+ROLE_INFO[role].name+'를 복사했다면 지금 눈을 뜨고 행동하세요.',end:'해당 도플갱어는 눈을 감아 주세요.'};
 
 const MIN_ACTION_MS = {
   doppelganger: 10000,
@@ -122,6 +125,7 @@ function defaultRoles(n) {
 
 
 function presetRoles(n, mode) {
+  if(mode==='daybreak')return ['alpha_wolf','dream_wolf','witch','investigator','apprentice_seer','bodyguard','sentinel','mystic_wolf','village_idiot','revealer','curator','doppelganger','tanner'].slice(0,n+3);
   if (mode === 'chaos') {
     const pool=['werewolf','werewolf','doppelganger','robber','troublemaker','drunk','seer','minion','insomniac','hunter','tanner','villager','villager'];
     return pool.slice(0,n+3);
@@ -147,6 +151,9 @@ function fastBotGame(room){return !!room.fastBots && room.players.some(p=>p.bot)
 function publicRoom(room) {
   return {
     code: room.code,
+    version: "daybreak",
+    shields:[...(room.shields||[])],
+    revealedCards:['discussion','voting','result'].includes(room.phase)?[...(room.revealedCards||new Map())].map(([id,card])=>({id,card})):[],
     fastBots: !!room.fastBots,
     fastBotGame: fastBotGame(room),
     nightActionEndsAt:room.nightActionEndsAt||null,
@@ -157,6 +164,7 @@ function publicRoom(room) {
       name: p.name,
       connected: p.connected,
       bot: !!p.bot,
+      hasArtifact:!!room.artifacts?.has(p.id),
       voted: !!p.vote
     })),
     selectedRoles: room.selectedRoles,
@@ -182,7 +190,8 @@ function getRoomOf(socket) {
 function selectedNightSteps(room) {
   const selected = new Set(room.selectedRoles || []);
   return NIGHT_ORDER.filter(role => {
-    if (role === 'doppel_insomniac') return selected.has('doppelganger') && selected.has('insomniac');
+    if(role.startsWith('doppel_'))return selected.has('doppelganger')&&selected.has(role.slice(7));
+    if(role==='werewolf')return [...selected].some(isWerewolf);
     return selected.has(role);
   });
 }
@@ -191,12 +200,7 @@ function doppelPlayer(room) {
   return room.players.find(p => p.initialCard?.role === 'doppelganger') || null;
 }
 
-function werewolfActors(room) {
-  return room.players.filter(p =>
-    p.initialCard?.role === 'werewolf' ||
-    (p.initialCard?.role === 'doppelganger' && p.initialCard?.doppelRole === 'werewolf')
-  );
-}
+function werewolfActors(room){return room.players.filter(p=>isWerewolf(effectiveRole(p.initialCard)));}
 
 function masonActors(room) {
   return room.players.filter(p =>
@@ -207,8 +211,9 @@ function masonActors(room) {
 
 function activeNightActors(room, step) {
   if (step === 'doppelganger') return room.players.filter(p => p.initialCard?.role === 'doppelganger');
-  if (step === 'werewolf') return werewolfActors(room);
+  if(step==='werewolf')return werewolfActors(room).filter(p=>effectiveRole(p.initialCard)!=='dream_wolf');
   if (step === 'mason') return masonActors(room);
+  if(step==='doppel_revealer'||step==='doppel_curator')return room.players.filter(p=>p.initialCard?.role==='doppelganger'&&p.initialCard?.doppelRole===step.slice(7));
   if (step === 'doppel_insomniac') {
     return room.players.filter(p => p.initialCard?.role === 'doppelganger' && p.initialCard?.doppelRole === 'insomniac');
   }
@@ -262,7 +267,7 @@ function finishNarrationCue(room, cueId) {
 }
 
 function genericActionPrompt(room, player, actionRole, wrapperRole = actionRole) {
-  const others = room.players.filter(p => p.id !== player.id).map(p => ({ id: p.id, name: p.name }));
+  const others = room.players.filter(p => p.id !== player.id&&!DB.shielded(room,p.id)).map(p => ({ id: p.id, name: p.name }));
   const info = ROLE_INFO[actionRole];
   const isDoppel = wrapperRole === 'doppelganger';
   const data = {
@@ -272,7 +277,7 @@ function genericActionPrompt(room, player, actionRole, wrapperRole = actionRole)
     emoji: isDoppel ? ROLE_INFO.doppelganger.emoji : info.emoji,
     copiedEmoji: isDoppel ? info.emoji : null,
     others,
-    center: [0,1,2],
+    center: room.centerCards.map((_,i)=>i),
     instructions: '',
     skipAllowed: false,
     stage: isDoppel ? 'followup' : 'action'
@@ -293,6 +298,10 @@ function genericActionPrompt(room, player, actionRole, wrapperRole = actionRole)
     data.instructions = '현재 자기 앞에 있는 카드의 앞면을 확인하세요.';
     data.currentCard = cardFaceView(room.currentCards.get(player.id));
   }
+  data.blocked=['robber','drunk','insomniac'].includes(actionRole)&&DB.shielded(room,player.id);
+  if((actionRole==='robber'&&others.length===0)||(actionRole==='troublemaker'&&others.length<2))data.blocked=true;
+  if(data.blocked){data.currentCard=null;data.instructions='보호막 때문에 이 행동을 할 수 없습니다. 확인 후 기다리세요.';}
+  if(DB.roles[actionRole])Object.assign(data,DB.prompt(room,player,actionRole,wrapperRole));
   return data;
 }
 
@@ -305,7 +314,7 @@ function buildNightPrompt(room, player, step) {
       stage: 'copy',
       roleName: '도플갱어',
       emoji: ROLE_INFO.doppelganger.emoji,
-      others: room.players.filter(p => p.id !== player.id).map(p => ({ id: p.id, name: p.name })),
+      others: room.players.filter(p => p.id !== player.id&&!DB.shielded(room,p.id)).map(p => ({ id: p.id, name: p.name })),
       instructions: '다른 플레이어 한 명의 카드 앞면을 확인하고 그 역할을 복사하세요.',
       skipAllowed: false
     };
@@ -314,7 +323,7 @@ function buildNightPrompt(room, player, step) {
   if (step === 'werewolf') {
     const wolves = werewolfActors(room);
     const mates = wolves.filter(p => p.id !== player.id).map(p => ({ id: p.id, name: p.name }));
-    const solo = wolves.length === 1;
+    const solo = wolves.filter(p=>effectiveRole(p.initialCard)!=='dream_wolf').length === 1;
     return {
       role: 'werewolf', actionRole: 'werewolf', stage: 'action',
       roleName: player.initialCard.role === 'doppelganger' ? '도플갱어 → 늑대인간' : '늑대인간',
@@ -324,7 +333,7 @@ function buildNightPrompt(room, player, step) {
       instructions: solo && room.loneWolfCenter
         ? '당신은 이번 밤에 혼자 깨어난 늑대입니다. 외로운 늑대 옵션으로 가운데 카드 1장을 확인할 수 있습니다.'
         : (solo ? '이번 밤에 함께 깨어난 다른 늑대가 없습니다.' : '함께 깨어난 다른 늑대를 확인하세요.'),
-      center: [0,1,2], skipAllowed: solo && room.loneWolfCenter
+      center: room.centerCards.map((_,i)=>i), skipAllowed: solo && room.loneWolfCenter
     };
   }
 
@@ -349,15 +358,9 @@ function buildNightPrompt(room, player, step) {
     };
   }
 
-  if (step === 'doppel_insomniac') {
-    return {
-      role: 'doppel_insomniac', actionRole: 'insomniac', stage: 'action',
-      roleName: '도플갱어 → 불면증 환자', emoji: ROLE_INFO.doppelganger.emoji, copiedEmoji: ROLE_INFO.insomniac.emoji,
-      instructions: '현재 자기 앞에 있는 카드의 앞면을 확인하세요.',
-      currentCard: cardFaceView(room.currentCards.get(player.id)), skipAllowed: false
-    };
-  }
+  if(step==='doppel_insomniac')return {...genericActionPrompt(room,player,'insomniac','doppelganger'),stage:'action'};
 
+  if(step==='doppel_revealer'||step==='doppel_curator')return genericActionPrompt(room,player,step.slice(7),'doppelganger');
   return genericActionPrompt(room, player, step, step);
 }
 
@@ -423,19 +426,21 @@ function scheduleBot(room, player, fn) {
 }
 
 function botNightPayload(prompt) {
+  if(DB.roles[prompt.actionRole])return DB.botPayload(prompt);
+  if(prompt.blocked)return {};
   const others = prompt.others || [];
   const pick = list => list[Math.floor(Math.random() * list.length)];
   if (prompt.stage === 'copy') return { targets: [pick(others).id] };
   if (prompt.skipAllowed && Math.random() < 0.2) return { skip: true };
   if (prompt.actionRole === 'seer') {
-    return Math.random() < 0.5
+    return others.length>0&&Math.random() < 0.5
       ? { type: 'player', targets: [pick(others).id] }
-      : { type: 'center', centerIndexes: shuffle([0,1,2]).slice(0,2) };
+      : { type: 'center', centerIndexes: shuffle(prompt.center||[0,1,2]).slice(0,2) };
   }
   if (prompt.actionRole === 'robber') return { targets: [pick(others).id] };
   if (prompt.actionRole === 'troublemaker') return { targets: shuffle(others).slice(0,2).map(p => p.id) };
   if (prompt.actionRole === 'drunk' || (prompt.actionRole === 'werewolf' && prompt.solo && prompt.loneWolfCenter)) {
-    return { centerIndexes: [Math.floor(Math.random() * 3)] };
+    return { centerIndexes: [(prompt.center||[0,1,2])[Math.floor(Math.random()*(prompt.center||[0,1,2]).length)]] };
   }
   return {};
 }
@@ -455,7 +460,7 @@ function finishTimedNightActions(room){
   // All roles receive the same fixed window, even when no actor is awake.
   // Drain copied-role followups and outstanding reveals at the deadline.
   for(const id of [...room.pendingActors]){
-    for(let pass=0;pass<4 && room.pendingActors.has(id);pass++){
+    for(let pass=0;pass<12 && room.pendingActors.has(id);pass++){
       if(room.awaitingAck.has(id)){handleNightAck(room,id);continue;}
       const player=room.players.find(p=>p.id===id),prompt=rebuildPendingPrompt(room,player);
       if(!prompt){actorDone(room,id);break;}
@@ -484,7 +489,7 @@ function openActionWindow(room, step, actors) {
     if(!fastBotGame(room))finishTimedNightActions(room);
     room.minimumActionElapsed = true;
     maybeFinishNightStep(room);
-  }, fastBotGame(room)?100:(MIN_ACTION_MS[step] || 7000));
+  }, fastBotGame(room)?100:(MIN_ACTION_MS[step] || 10000));
 
   if (actors.length === 0) maybeFinishNightStep(room);
 }
@@ -521,6 +526,8 @@ function beginDiscussion(room) {
   clearNightTimers(room);
   room.narrationCue = null;
   room.phase = 'discussion';
+  room.nightActionEndsAt=null;
+  for(const p of room.players)if(room.artifacts?.has(p.id))io.to(p.id).emit('artifact:reveal',{key:room.artifacts.get(p.id),...DB.artifacts[room.artifacts.get(p.id)]});
   room.activeNightRole = null;
   room.pendingActors = new Set();
   room.awaitingAck = new Set();
@@ -550,7 +557,7 @@ function beginVoting(room) {
 }
 
 function resolveGame(room) {
-  const outcome = resolveOutcome(room.players, id => room.currentCards.get(id));
+  const outcome = resolveOutcome(room.players, id => outcomeCard(room,id));
   room.phase = 'result';
   room.killedIds = outcome.killedIds;
   room.winnerText = outcome.winnerText;
@@ -567,7 +574,9 @@ function resolveGame(room) {
       id: p.id,
       name: p.name,
       initial: cardFaceView(p.initialCard),
-      final: finalRoleView(room.currentCards.get(p.id)),
+      final: finalRoleView(outcomeCard(room,p.id)),
+      artifact:room.artifacts?.has(p.id)?DB.artifacts[room.artifacts.get(p.id)]:null,
+      shielded:!!room.shields?.has(p.id),
       vote: p.vote
     })),
     history: room.actionHistory || [],
@@ -595,6 +604,8 @@ function finishWithoutReveal(room, player, cb, result = {}) {
 }
 
 function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = actionRole) {
+  if(DB.roles[actionRole])return DB.perform(room,player,actionRole,payload,cb,wrapperRole);
+  if(['robber','drunk','insomniac'].includes(actionRole)&&DB.shielded(room,player.id))return finishWithoutReveal(room,player,cb,{skipped:true});
   const targets = Array.isArray(payload.targets) ? payload.targets : [];
   const centerIndexes = Array.isArray(payload.centerIndexes) ? payload.centerIndexes : [];
   const type = payload.type;
@@ -607,10 +618,10 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
 
   if (actionRole === 'werewolf') {
     const wolves = werewolfActors(room);
-    if (wolves.length === 1 && room.loneWolfCenter) {
+    if (wolves.filter(p=>effectiveRole(p.initialCard)!=='dream_wolf').length === 1 && room.loneWolfCenter) {
       if (skip) return finishWithoutReveal(room, player, cb, { skipped: true });
       const idx = Number(centerIndexes[0]);
-      if (![0,1,2].includes(idx)) throw new Error('가운데 카드 1장을 선택하거나 건너뛰세요.');
+      if (!room.centerCards[idx]) throw new Error('가운데 카드 1장을 선택하거나 건너뛰세요.');
       player.nightState = { stage: 'done' };
       return finishWithReveal(room, player, cb, { seen: [cardFaceView(room.centerCards[idx])] });
     }
@@ -626,13 +637,13 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
   if (actionRole === 'seer') {
     if (type === 'player') {
       const tid = targets[0];
-      if (!tid || tid === player.id || !room.currentCards.has(tid)) throw new Error('다른 플레이어 1명을 선택하세요.');
+      if (!tid || tid === player.id || (!room.currentCards.has(tid)||DB.shielded(room,tid))) throw new Error('다른 플레이어 1명을 선택하세요.');
       player.nightState = { stage: 'done' };
       return finishWithReveal(room, player, cb, { seen: [cardFaceView(room.currentCards.get(tid))] });
     }
     if (type === 'center') {
       const uniq = [...new Set(centerIndexes.map(Number))];
-      if (uniq.length !== 2 || uniq.some(i => ![0,1,2].includes(i))) throw new Error('가운데 카드 2장을 선택하세요.');
+      if (uniq.length !== 2 || uniq.some(i => !room.centerCards[i])) throw new Error('가운데 카드 2장을 선택하세요.');
       player.nightState = { stage: 'done' };
       return finishWithReveal(room, player, cb, { seen: uniq.map(i => cardFaceView(room.centerCards[i])) });
     }
@@ -641,7 +652,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
 
   if (actionRole === 'robber') {
     const tid = targets[0];
-    if (!tid || tid === player.id || !room.currentCards.has(tid)) throw new Error('다른 플레이어 1명을 선택하거나 행동을 건너뛰세요.');
+    if (!tid || tid === player.id || !room.currentCards.has(tid)||DB.shielded(room,tid)) throw new Error('다른 플레이어 1명을 선택하거나 행동을 건너뛰세요.');
     const mine = room.currentCards.get(player.id);
     const theirs = room.currentCards.get(tid);
     recordSwap(room,player,actionRole,player.name,room.players.find(p=>p.id===tid).name,mine,theirs);
@@ -652,7 +663,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
   }
 
   if (actionRole === 'troublemaker') {
-    const uniq = [...new Set(targets)].filter(id => id !== player.id && room.currentCards.has(id));
+    const uniq = [...new Set(targets)].filter(id => id !== player.id && room.currentCards.has(id)&&!DB.shielded(room,id));
     if (uniq.length !== 2) throw new Error('다른 플레이어 2명을 선택하거나 행동을 건너뛰세요.');
     const a = room.currentCards.get(uniq[0]);
     const b = room.currentCards.get(uniq[1]);
@@ -665,7 +676,7 @@ function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = 
 
   if (actionRole === 'drunk') {
     const idx = Number(centerIndexes[0]);
-    if (![0,1,2].includes(idx)) throw new Error('가운데 카드 1장을 선택하세요.');
+    if (!room.centerCards[idx]) throw new Error('가운데 카드 1장을 선택하세요.');
     const mine = room.currentCards.get(player.id);
     const center = room.centerCards[idx];
     recordSwap(room,player,actionRole,player.name,`가운데 ${idx+1}`,mine,center);
@@ -708,7 +719,7 @@ function handleNightAction(room, playerId, payload = {}, cb) {
           let extraText = `복사한 역할: ${copiedInfo.emoji} ${copiedInfo.name}`;
           let nextPrompt = null;
 
-          if (['seer','robber','troublemaker','drunk'].includes(copiedRole)) {
+          if (IMMEDIATE_COPY.includes(copiedRole)) {
             nextPrompt = genericActionPrompt(room, player, copiedRole, 'doppelganger');
             player.nightState = { stage: 'awaitFollowup', copiedRole, nextPrompt };
             extraText += ' · 이 역할의 밤 행동을 지금 바로 실행합니다.';
@@ -736,13 +747,14 @@ function handleNightAction(room, playerId, payload = {}, cb) {
 
         if (stage === 'followup') {
           const copiedRole = player.nightState?.copiedRole;
-          if (!['seer','robber','troublemaker','drunk'].includes(copiedRole)) throw new Error('도플갱어 추가 행동 상태가 올바르지 않습니다.');
+          if (!IMMEDIATE_COPY.includes(copiedRole)) throw new Error('도플갱어 추가 행동 상태가 올바르지 않습니다.');
           return performRoleAction(room, player, copiedRole, payload, cb, 'doppelganger');
         }
 
         throw new Error('도플갱어 행동 상태가 올바르지 않습니다.');
       }
 
+      if(step==='doppel_revealer'||step==='doppel_curator')return performRoleAction(room,player,step.slice(7),payload,cb,'doppelganger');
       if (step === 'doppel_insomniac') return performRoleAction(room, player, 'insomniac', payload, cb, 'doppelganger');
       return performRoleAction(room, player, step, payload, cb, step);
     } catch (e) {
@@ -758,9 +770,10 @@ function handleNightAck(room, playerId) {
     room.awaitingAck.delete(playerId);
     player.pendingReveal = null;
 
-    if (room.activeNightRole === 'doppelganger' && player.nightState?.nextPrompt) {
-      const nextPrompt = player.nightState.nextPrompt;
-      player.nightState = { stage: 'followup', copiedRole: player.initialCard.doppelRole, currentPrompt: nextPrompt };
+    if (player.nightState?.nextPrompt) {
+      const saved=player.nightState.nextPrompt;
+      const nextPrompt=genericActionPrompt(room,player,saved.actionRole,saved.role);
+      player.nightState = {...player.nightState,nextPrompt:null,stage:room.activeNightRole==='doppelganger'?'followup':'action',copiedRole:player.nightState.copiedRole||player.initialCard.doppelRole,currentPrompt:nextPrompt};
       sendNightPrompt(room, player, nextPrompt);
       return;
     }
@@ -806,6 +819,7 @@ io.on('connection', socket => {
       discussionSeconds: 240,
       loneWolfCenter: true,
       fastBots: true,
+      shields:new Set(),artifacts:new Map(),revealedCards:new Map(),artifactDeck:[],
       currentCards: new Map(),
       centerCards: [],
       nightIndex: 0,
@@ -846,6 +860,9 @@ io.on('connection', socket => {
 
     if (oldId !== newId) {
       p.id = newId;
+      if(room.shields?.delete(oldId))room.shields.add(newId);
+      for(const map of [room.artifacts,room.revealedCards])if(map?.has(oldId)){const value=map.get(oldId);map.delete(oldId);map.set(newId,value);}
+      room.players.forEach(x=>{if(x.nightState?.investigatorSeen)x.nightState.investigatorSeen=x.nightState.investigatorSeen.map(id=>id===oldId?newId:id);});
       if (room.hostId === oldId) room.hostId = newId;
       if (room.currentCards?.has(oldId)) {
         const card = room.currentCards.get(oldId);
@@ -889,6 +906,7 @@ io.on('connection', socket => {
     else if (room.phase === 'voting') io.to(newId).emit('voting:start');
     else if (room.phase === 'result' && room.lastReveal) io.to(newId).emit('game:result', room.lastReveal);
 
+    if(['discussion','voting','result'].includes(room.phase)&&room.artifacts?.has(newId))io.to(newId).emit('artifact:reveal',{key:room.artifacts.get(newId),...DB.artifacts[room.artifacts.get(newId)]});
     cb?.({ ok: true, playerId: newId, room: publicRoom(room) });
   });
 
@@ -934,7 +952,7 @@ io.on('connection', socket => {
   socket.on('room:setPreset', ({ mode } = {}, cb) => {
     const room=getRoomOf(socket);
     if(!room || room.hostId!==socket.id || room.phase!=='lobby') return cb?.({ok:false,error:'대기방에서 방장만 구성을 변경할 수 있습니다.'});
-    if(!['beginner','chaos'].includes(mode)) return cb?.({ok:false,error:'알 수 없는 구성입니다.'});
+    if(!['beginner','chaos','daybreak'].includes(mode)) return cb?.({ok:false,error:'알 수 없는 구성입니다.'});
     const roles=presetRoles(room.playerCount,mode);
     const valid=validateRoleSelection(roles,room.playerCount);
     if(!valid.ok) return cb?.(valid);
@@ -998,6 +1016,7 @@ io.on('connection', socket => {
 
     clearNightTimers(room);
     room.actionHistory = [];
+    room.shields=new Set();room.artifacts=new Map();room.revealedCards=new Map();room.artifactDeck=shuffle(Object.keys(DB.artifacts));
     const deck = shuffle(room.selectedRoles.map((r, i) => makeCard(r, `c${Date.now()}_${i}`)));
     room.currentCards = new Map();
     room.players.forEach((p, i) => {
@@ -1008,6 +1027,7 @@ io.on('connection', socket => {
       room.currentCards.set(p.id, deck[i]);
     });
     room.centerCards = deck.slice(room.players.length);
+    if(room.selectedRoles.includes('alpha_wolf'))room.centerCards.push(makeCard('werewolf','alpha_'+token()));
     room.phase = 'roleReveal';
     room.nightIndex = 0;
     room.activeNightRole = null;
@@ -1075,7 +1095,7 @@ io.on('connection', socket => {
     });
     room.currentCards = new Map();
     room.centerCards = [];
-    room.actionHistory = [];
+    room.actionHistory = [];room.shields=new Set();room.artifacts=new Map();room.revealedCards=new Map();room.artifactDeck=[];
     room.activeNightRole = null;
     room.finishingNightStep = false;
     room.winnerText = null;
@@ -1118,3 +1138,4 @@ io.on('connection', socket => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Midnight Werewolf running on http://0.0.0.0:${PORT}`);
 });
+

@@ -17,6 +17,8 @@ const ROLE_INFO = {
   villager:{name:'주민',emoji:'🏠',team:'마을팀',max:3,desc:'밤 행동은 없습니다. 토론과 추리로 늑대를 찾아야 합니다.'}
 };
 
+Object.assign(ROLE_INFO,Object.fromEntries(Object.entries(DAYBREAK_ROLES).map(([k,v])=>[k,{...v,team:v.team==='wolf'?'늑대팀':'마을팀'}])));
+
 let state = {
   room:null,
   myId:null,
@@ -27,6 +29,7 @@ let state = {
   selected:[],
   voted:null,
   narrationEnabled:null,
+  artifact:null, direction:null,
   seerMode:null
 };
 let timerInt = null;
@@ -56,13 +59,13 @@ function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function me(){return state.room?.players.find(p=>p.id===state.myId)}
 function isHost(){return state.room?.hostId===state.myId}
 function shell(inner){return `<div class="shell">${inner}</div>`}
-function topbar(){return state.room?`<div class="topbar"><span class="badge">🌙 한밤의 늑대인간</span><div class="room-tools">${isHost()?'<button class="room-close-button" data-close-room aria-label="방 종료">종료</button>':''}<span class="smallcode">${state.room.code}</span><button class="info-button" data-role-guide aria-label="모든 캐릭터 능력 안내">ⓘ</button></div></div>`:''}
+function topbar(){return state.room?`<div class="topbar"><span class="badge">🌅 Daybreak 확장판</span><div class="room-tools">${isHost()?'<button class="room-close-button" data-close-room aria-label="방 종료">종료</button>':''}<span class="smallcode">${state.room.code}</span><button class="info-button" data-role-guide aria-label="모든 캐릭터 능력 안내">ⓘ</button></div></div>`:''}
 
 
 function openRoleGuide(){
   const dialog=document.getElementById('roleGuide');
   const notes={
-    doppelganger:'복사한 역할의 승리 조건을 따릅니다. 예언자·강도·말썽쟁이·주정뱅이를 복사하면 즉시 행동하고, 늑대·석공은 해당 순서에 함께 확인합니다. 하수인은 별도로 늑대를 확인하고 불면증은 일반 불면증 뒤에 확인합니다.',
+    doppelganger:'확장 역할도 복사합니다. 파수꾼·우두머리·신비한 늑대·견습 예언자·조사관·마녀·바보는 즉시 행동합니다. 공개자·유물 관리인은 해당 일반 역할 뒤, 경호원·잠자는 늑대는 밤 행동이 없습니다. 복사한 역할의 승리 조건을 따릅니다. 예언자·강도·말썽쟁이·주정뱅이를 복사하면 즉시 행동하고, 늑대·석공은 해당 순서에 함께 확인합니다. 하수인은 별도로 늑대를 확인하고 불면증은 일반 불면증 뒤에 확인합니다.',
     werewolf:'혼자 깨어난 늑대는 방의 선택 규칙이 켜져 있을 때 가운데 카드 1장을 볼 수 있습니다.',
     minion:'플레이어 중 늑대가 있으면 늑대가 죽지 않아야 승리하며 하수인 자신은 죽어도 됩니다. 늑대가 없으면 하수인 이외의 누군가가 죽어야 승리합니다. 무두장이 승리가 우선 적용됩니다.',
     robber:'새 역할의 승리 조건을 따르지만 그 역할의 밤 행동을 추가로 하지 않습니다.',
@@ -70,7 +73,7 @@ function openRoleGuide(){
     hunter:'사냥꾼 효과는 투표 종료 시 최종 카드가 사냥꾼인 사람에게 적용됩니다.',
     tanner:'늑대와 함께 죽으면 마을팀과 동시에 승리할 수 있습니다.'
   };
-  document.getElementById('roleGuideContent').innerHTML=`<p class="hint">전체 캐릭터 안내입니다. 누가 어떤 역할인지 공개하지 않습니다. 밤에는 자기 차례에만 화면을 확인하세요.</p><p class="hint">능력은 시작 역할로 행동하고, 승패는 밤이 끝난 뒤 최종 카드로 결정됩니다. 마을팀은 늑대가 죽으면 승리합니다. 플레이어 중 늑대가 없으면 아무도 죽지 않아야 승리합니다. 무두장이가 죽으면 무두장이 승리가 우선입니다.</p><p class="hint">밤 순서: 도플갱어 → 늑대인간 → 하수인 → 석공 → 예언자 → 강도 → 말썽쟁이 → 주정뱅이 → 불면증 환자</p>${Object.entries(ROLE_INFO).map(([key,r])=>`<details class="guide-role"><summary>${r.emoji} ${r.name} <span class="muted">· ${r.team}</span></summary><p>${r.desc}</p>${notes[key]?`<p>${notes[key]}</p>`:''}</details>`).join('')}`;
+  document.getElementById('roleGuideContent').innerHTML=`<p class="hint">전체 캐릭터 안내입니다. 누가 어떤 역할인지 공개하지 않습니다. 밤에는 자기 차례에만 화면을 확인하세요.</p><p class="hint">능력은 시작 역할로 행동하고, 승패는 밤이 끝난 뒤 최종 카드로 결정됩니다. 마을팀은 늑대가 죽으면 승리합니다. 플레이어 중 늑대가 없으면 아무도 죽지 않아야 승리합니다. 무두장이가 죽으면 무두장이 승리가 우선입니다.</p><p class="hint">밤 순서: 파수꾼 → 도플갱어 → 늑대 확인 → 우두머리 늑대 → 신비한 늑대 → 하수인 → 석공 → 예언자 → 견습 예언자 → 조사관 → 강도 → 마녀 → 말썽쟁이 → 바보 → 주정뱅이 → 불면증 → 공개자 → 유물 관리인. 복사한 공개자·유물 관리인는 해당 일반 역할 뒤에 행동합니다.</p>${Object.entries(ROLE_INFO).map(([key,r])=>`<details class="guide-role"><summary>${r.emoji} ${r.name} <span class="muted">· ${r.team}</span></summary><p>${r.desc}</p>${notes[key]?`<p>${notes[key]}</p>`:''}</details>`).join('')}<h2>유물 6종</h2><p class="hint">큐레이터가 배치합니다. 낮 시작 시 받은 사람만 확인하며, 역할 유물은 최종 카드의 능력과 승리 조건을 덮어씁니다.</p>${Object.values(ARTIFACTS).map(a=>`<p><b>${a.emoji} ${esc(a.name)}</b> · ${esc(a.desc)}</p>`).join('')}`;
   dialog.showModal();
 }
 document.addEventListener('click',e=>{if(e.target.closest?.('[data-role-guide]')) openRoleGuide();});
@@ -128,8 +131,8 @@ function primeNarration(){
 function renderHome(){
   clearInterval(timerInt);
   app.innerHTML=shell(`
-    <div class="brand"><div class="moon">🌕🐺</div><h1>한밤의 늑대인간</h1><div class="subtitle">친구들끼리 각자 휴대폰으로 한 판</div></div>
-    <div class="card"><h2>게임 시작</h2>
+    <div class="brand"><div class="moon">🌕🐺</div><h1>Daybreak 확장판</h1><div class="subtitle">기본 직업 + 확장 직업 11종 · 별도 게임방</div></div>
+    <a class="btn secondary" href="https://midnight-werewolf-mobile.onrender.com/">🌙 일반판으로 가기</a><div class="card"><h2>게임 시작</h2>
       <input id="name" class="input" maxlength="12" placeholder="닉네임" autocomplete="off" />
       <button id="create" class="btn">방 만들기</button>
       <div class="divider"></div>
@@ -165,7 +168,7 @@ function resetToHome(){
   clearInterval(timerInt);localStorage.removeItem('mw_room');localStorage.removeItem('mw_token');
   releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
+  state.artifact=null;state.room=null;state.role=null;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.selected=[];state.voted=null;state.narrationEnabled=null;
   renderHome();
 }
 document.addEventListener('click',e=>{
@@ -198,11 +201,11 @@ function renderLobby(){
     </div>
     <div class="card"><h2>참가 인원</h2>
       ${isHost()?`<select id="playerCount" class="input">${Array.from({length:8},(_,i)=>i+3).map(n=>`<option value="${n}" ${n<room.players.length?'disabled':''}>${n}명</option>`).join('')}</select>`:`<div>${room.playerCount}명</div>`}
-      <div class="hint">현재 ${room.players.length} / ${room.playerCount}명 입장 · 모두 접속하면 시작할 수 있습니다.<br>역할은 참가자 ${room.playerCount}장 + 가운데 3장 = 총 ${need}장을 선택하세요.</div>
+      <div class="hint">현재 ${room.players.length} / ${room.playerCount}명 입장 · 모두 접속하면 시작할 수 있습니다.<br>역할은 참가자 ${room.playerCount}장 + 가운데 3장 = 총 ${need}장을 선택하세요.${counts.alpha_wolf?'<br>🐺 우두머리 늑대 포함: 추가 가운데 늑대 1장이 자동으로 더해집니다.':''}</div>
       <div class="section-title">토론 시간</div>
       ${isHost()?`<select id="discussion" class="input" aria-label="토론 시간">${[1,2,3,4,5,7,10].map(m=>`<option value="${m*60}">${m}분</option>`).join('')}</select>`:`<div>${Math.round((room.discussionSeconds||240)/60)}분 · 방장이 설정</div>`}
-    </div><div class="card"><h2>역할 구성</h2>${isHost()?'<div class="row"><button id="presetBeginner" class="btn secondary">🌱 초보 추천</button><button id="presetChaos" class="btn secondary">🌀 혼돈 추천</button></div><div class="hint">선택한 인원에 맞춰 전체 구성을 바꿉니다. 초보는 기본 추리 중심, 혼돈은 도플갱어·카드 교환 중심입니다.</div>':''}<div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
-      <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도 또는 말썽쟁이와 함께 사용하는 공식 구성을 따릅니다.</div>
+    </div><div class="card"><h2>역할 구성</h2>${isHost()?'<div class="row"><button id="presetBeginner" class="btn secondary">🌱 초보 추천</button><button id="presetChaos" class="btn secondary">🌀 혼돈 추천</button></div><div class="hint">선택한 인원에 맞춰 전체 구성을 바꿉니다. 초보는 기본 추리 중심, 혼돈은 도플갱어·카드 교환 중심입니다.</div>':''}${isHost()?'<button id="presetDaybreak" class="btn secondary">🌅 확장판 추천 구성</button>':''}<div class="role-grid">${roleControls}</div><div class="counter ${selected===need?'':'bad'}">${selected} / ${need}장</div>
+      <div class="hint">석공을 쓰면 2장을 모두 넣어야 합니다. 불면증 환자는 강도·말썽쟁이·마녀·바보·우두머리 늑대 중 카드 이동 직업과 함께 사용합니다.</div>
       <div class="hint">밤 행동은 음성 안내 뒤 10초 고정입니다. 시간 초과 시 선택 행동은 건너뛰고 필수 복사·교환은 무작위 처리됩니다. 확인 화면도 10초가 지나면 닫힙니다.</div><div class="section-title">밤 나레이션</div>
       <div class="hint">방장 폰의 음성이 밤 순서와 동기화됩니다. 다른 폰의 음성은 필요할 때만 보조로 켜세요.</div>
       <div class="row"><button id="narrationToggle" class="btn secondary">${state.narrationEnabled?'🔊 이 폰 나레이션 켜짐':'🔇 이 폰 나레이션 꺼짐'}</button><button id="narrationTest" class="btn secondary">음성 테스트</button></div>
@@ -219,6 +222,7 @@ function renderLobby(){
   document.getElementById('narrationTest').onclick=()=>{setNarrationEnabled(true);primeNarration();speakNarration('나레이션 테스트입니다. 밤에는 자신의 역할이 호명될 때만 눈을 뜨세요.',{test:true});renderLobby();};
   if(isHost()){
     document.getElementById('fastBots').onchange=e=>socket.emit('room:setFastBots',{enabled:e.target.checked},res=>{if(!res?.ok)toast(res?.error);});
+    document.getElementById('presetDaybreak').onclick=()=>socket.emit('room:setPreset',{mode:'daybreak'},res=>{if(!res?.ok)toast(res?.error);});
     document.getElementById('presetBeginner').onclick=()=>socket.emit('room:setPreset',{mode:'beginner'},res=>{if(!res?.ok)toast(res?.error);});
     document.getElementById('presetChaos').onclick=()=>socket.emit('room:setPreset',{mode:'chaos'},res=>{if(!res?.ok)toast(res?.error);});
     const botRequest=(event,payload)=>socket.emit(event,payload,res=>{if(!res?.ok)toast(res?.error||'봇 설정을 변경할 수 없습니다.');});
@@ -257,7 +261,7 @@ function renderWaiting(msg='밤이 진행 중입니다…'){
 function actionRoleOf(p){return p.actionRole||p.role}
 function roleIcons(p){return p.copiedEmoji?`${p.emoji} <span class="copy-arrow">→</span> ${p.copiedEmoji}`:p.emoji}
 function playerChoices(players,max){return `<div class="choice-list">${players.map(x=>`<button class="choice" data-player="${x.id}">${esc(x.name)}</button>`).join('')}</div><div class="counter">${max===2?'2명 선택':'1명 선택'}</div>`}
-function centerButtons(max){return `<div class="center-cards">${[0,1,2].map(i=>`<button class="center-card" data-center="${i}">?</button>`).join('')}</div><div class="counter">${max===2?'2장 선택':'1장 선택'}</div>`}
+function centerButtons(max,indexes=state.nightPrompt?.center||[0,1,2]){return `<div class="center-cards">${indexes.map(i=>`<button class="center-card" data-center="${i}">${i===3?'추가<br>🐺':i+1+'<br>?'}</button>`).join('')}</div><div class="counter">${max===2?'2장 선택':'1장 선택'}</div>`}
 
 
 let nightClockInt=null;
@@ -272,11 +276,13 @@ function startNightClock(endsAt=state.room?.nightActionEndsAt){
 function renderNight(){
   const p=state.nightPrompt;
   if(!p)return renderWaiting();
-  state.selected=[];state.seerMode=null;
+  state.selected=[];state.seerMode=null;state.direction=null;
   const actionRole=actionRoleOf(p);
   let extra='';
 
-  if(p.role==='doppelganger' && p.stage==='copy'){
+  if(p.blocked){extra='<div class="hint">보호막 또는 선택 가능한 대상이 없어 행동할 수 없습니다.</div>';} else if(DAYBREAK_ROLES[actionRole] && p.stage!=='copy'){
+    extra=`<div class="hint">${esc(p.instructions)}</div>${p.input==='center'?centerButtons(1):p.input==='direction'?`<p class="hint">자리 순서: ${state.room.players.map(x=>esc(x.name)).join(' → ')} → 처음. 오른쪽은 다음 사람, 왼쪽은 이전 사람입니다. 자신과 보호막 자리는 건너뜁니다.</p><div class="row"><button class="btn secondary" data-direction="left">← 왼쪽</button><button class="btn secondary" data-direction="right">오른쪽 →</button></div>`:playerChoices(p.others,1)}`;
+  } else if(p.role==='doppelganger' && p.stage==='copy'){
     extra=`<div class="hint">${esc(p.instructions)}</div>${playerChoices(p.others,1)}`;
   } else if(actionRole==='werewolf'){
     if(p.solo && p.loneWolfCenter) extra=`<div class="hint">${esc(p.instructions)}</div>${centerButtons(1)}`;
@@ -305,8 +311,11 @@ function renderNight(){
   updateActButton(p);
 }
 function nightButtonText(p){
+  if(p.blocked)return '확인 완료';
   if(p.role==='doppelganger'&&p.stage==='copy')return '카드 확인 · 역할 복사';
   const r=actionRoleOf(p);
+  if(r==='witch')return p.phase==='exchange'?'확인한 카드 교환':'가운데 확인 · 다음에 반드시 교환';
+  if(r==='investigator')return p.phase==='second'?'두 번째 카드 확인':'첫 번째 카드 확인';
   if(['minion','mason','insomniac'].includes(r))return '확인 완료';
   if(r==='werewolf'&&!(p.solo&&p.loneWolfCenter))return '확인 완료';
   if(r==='seer')return '선택한 카드 확인';
@@ -321,7 +330,8 @@ function setupNightSelectors(p){
   const centerMax=actionRole==='seer'?2:1;
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selectEl(b,'player',playerMax);updateActButton(p)});
   document.querySelectorAll('[data-center]').forEach(b=>b.onclick=()=>{selectEl(b,'center',centerMax);updateActButton(p)});
-  if(actionRole==='seer'){
+  document.querySelectorAll('[data-direction]').forEach(b=>b.onclick=()=>{state.direction=b.dataset.direction;document.querySelectorAll('[data-direction]').forEach(x=>x.classList.toggle('selected',x===b));updateActButton(p);});
+  if(actionRole==='seer'&&!p.blocked){
     document.getElementById('seerPlayer').onclick=()=>{
       state.selected=[];state.seerMode='player';
       document.getElementById('seerChoices').innerHTML=playerChoices(p.others,1);
@@ -350,7 +360,9 @@ function updateActButton(p){
   const btn=document.getElementById('act');if(!btn)return;
   const r=actionRoleOf(p),pc=state.selected.filter(x=>x.type==='player').length,cc=state.selected.filter(x=>x.type==='center').length;
   let ok=true;
-  if(p.role==='doppelganger'&&p.stage==='copy')ok=pc===1;
+  if(p.blocked)ok=true;
+  else if(DAYBREAK_ROLES[r]&&p.stage!=='copy')ok=p.input==='center'?cc===1:p.input==='direction'?!!state.direction:pc===1;
+  else if(p.role==='doppelganger'&&p.stage==='copy')ok=pc===1;
   else if(r==='seer')ok=(state.seerMode==='player'&&pc===1)||(state.seerMode==='center'&&cc===2);
   else if(r==='robber')ok=pc===1;
   else if(r==='troublemaker')ok=pc===2;
@@ -365,7 +377,7 @@ function submitNight(p,skip){
   const centerIndexes=state.selected.filter(x=>x.type==='center').map(x=>x.val);
   const actionRole=actionRoleOf(p);
   const type=actionRole==='seer'?state.seerMode:null;
-  socket.emit('night:action',{type,targets,centerIndexes,skip:!!skip},res=>{
+  socket.emit('night:action',{type,targets,centerIndexes,direction:state.direction,skip:!!skip},res=>{
     if(state.room?.phase!=='night'||state.nightPrompt!==p)return;
     if(!res?.ok){if(btn)btn.disabled=false;return toast(res?.error||'선택을 확인하세요.');}
     state.nightPrompt=null;
@@ -379,18 +391,23 @@ function submitNight(p,skip){
 function renderNightReveal(payload){
   state.nightReveal=payload;
   const cards=(payload.seen||[]).map(x=>`<div class="seen-card"><div class="seen-emoji">${x.emoji}</div><div>${esc(x.name)}</div></div>`).join('');
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">확인 결과</div>${nightClockHtml()}${cards?`<div class="seen-grid">${cards}</div>`:''}${payload.extraText?`<div class="result-banner">${esc(payload.extraText)}</div>`:''}<div class="hint center">이 정보는 본인만 확인하세요.</div><button id="ackReveal" class="btn">${payload.nextPrompt?'복사한 역할 행동하기':'확인 완료 · 눈 감기'}</button></div>`);
+  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">확인 결과</div>${nightClockHtml()}${cards?`<div class="seen-grid">${cards}</div>`:''}${payload.extraText?`<div class="result-banner">${esc(payload.extraText)}</div>`:''}<div class="hint center">이 정보는 본인만 확인하세요.</div><button id="ackReveal" class="btn">${payload.nextPrompt?'다음 선택으로 계속':'확인 완료 · 눈 감기'}</button></div>`);
   startNightClock();
   document.getElementById('ackReveal').onclick=()=>{state.nightReveal=null;state.nightPrompt=null;renderWaiting('밤이 계속 진행 중입니다…');socket.emit('night:ack');};
 }
 
+function publicDayInfo(){
+ const room=state.room;if(state.artifact?.key==='shame')return '<div class="hint">수치 유물: 다른 사람과 공개 카드를 보지 마세요. 투표는 이름만 보고 진행합니다.</div>';
+ return '<div class="card"><h2>자리 순서 · 공개 정보</h2>'+room.players.map((p,i)=>{const card=room.revealedCards?.find(x=>x.id===p.id)?.card;return '<div class="player"><span>'+ (i+1)+'. '+esc(p.name)+(room.shields?.includes(p.id)?' 🛡️':'')+(p.hasArtifact?' 🏺':'')+'</span>'+(card?'<b>'+card.emoji+' '+esc(card.name)+'</b>':'')+'</div>'}).join('')+'</div>';
+}
+function artifactInfo(){return state.artifact?'<div class="card"><h2>나의 유물 · 본인만 확인</h2><div class="result-banner">'+esc(state.artifact.emoji)+' '+esc(state.artifact.name)+'</div><p>'+esc(state.artifact.desc)+'</p></div>':'';}
 function renderDiscussion(){
   clearInterval(timerInt);
   releaseHostWakeLock();
   const room=state.room;
   const rc=countRoles(room.selectedRoles||[]);
   const roleSummary=Object.entries(ROLE_INFO).filter(([k])=>rc[k]).map(([k,r])=>`<span class="role-token">${r.emoji} ${r.name}${rc[k]>1?` ×${rc[k]}`:''}</span>`).join('');
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">낮 · 토론</div><div id="timer" class="timer">--:--</div><div class="hint center">밤에 확인한 정보와 거짓말을 이용해 최종 카드의 늑대를 찾아내세요. 밤이 끝난 뒤에는 카드를 다시 볼 수 없습니다.</div><div class="role-tokens">${roleSummary}</div>${isHost()?'<button id="voteNow" class="btn secondary">토론 종료 · 바로 투표</button>':''}</div><div class="card"><h2>참가자</h2>${room.players.map(p=>`<div class="player"><span class="player-name">${esc(p.name)}</span></div>`).join('')}</div>`);
+  app.innerHTML=shell(`${topbar()}${artifactInfo()}<div class="card"><div class="center muted">낮 · 토론</div><div id="timer" class="timer">--:--</div><div class="hint center">밤에 확인한 정보와 거짓말을 이용해 최종 카드의 늑대를 찾아내세요. 밤이 끝난 뒤에는 카드를 다시 볼 수 없습니다.</div><div class="role-tokens">${roleSummary}</div>${isHost()?'<button id="voteNow" class="btn secondary">토론 종료 · 바로 투표</button>':''}</div>${publicDayInfo()}`);
   const timer=document.getElementById('timer');
   const tick=()=>{const ms=Math.max(0,(room.discussionEndsAt||Date.now())-Date.now()),s=Math.ceil(ms/1000),m=Math.floor(s/60),ss=s%60;timer.textContent=`${m}:${String(ss).padStart(2,'0')}`;timer.classList.toggle('warn',s<=30)};
   tick();timerInt=setInterval(tick,250);
@@ -401,7 +418,7 @@ function renderVoting(){
   clearInterval(timerInt);
   const room=state.room,self=me(),already=!!self?.voted;
   const options=room.players.filter(p=>p.id!==state.myId);
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">최종 투표</div><h2 class="center">누구를 지목할까?</h2><div class="hint center">공식 규칙대로 <b>자기 자신에게는 투표할 수 없습니다.</b><br>최다 득표자가 죽고 최다 득표가 동률이면 모두 죽습니다. 최고 득표가 1표뿐이면 아무도 죽지 않습니다.</div><div class="vote-grid">${options.map(p=>`<button class="vote ${state.voted===p.id?'selected':''}" data-vote="${p.id}" ${already?'disabled':''}>${esc(p.name)}</button>`).join('')}</div><button id="cast" class="btn" ${already||!state.voted?'disabled':''}>${already?'투표 완료 · 결과 기다리는 중':'투표 확정'}</button><div class="counter">${room.players.filter(p=>p.voted).length} / ${room.players.length}명 투표 완료</div></div>`);
+  app.innerHTML=shell(`${topbar()}${artifactInfo()}${publicDayInfo()}<div class="card"><div class="center muted">최종 투표</div><h2 class="center">누구를 지목할까?</h2><div class="hint center">공식 규칙대로 <b>자기 자신에게는 투표할 수 없습니다.</b><br>최다 득표자가 죽고 최다 득표가 동률이면 모두 죽습니다. 최고 득표가 1표뿐이면 아무도 죽지 않습니다. 최종 보디가드가 지목한 사람은 죽지 않으며, 보호되지 않은 사람 중 가장 많은 표(2표 이상)를 받은 사람이 죽습니다.</div><div class="vote-grid">${options.map(p=>`<button class="vote ${state.voted===p.id?'selected':''}" data-vote="${p.id}" ${already?'disabled':''}>${esc(p.name)}</button>`).join('')}</div><button id="cast" class="btn" ${already||!state.voted?'disabled':''}>${already?'투표 완료 · 결과 기다리는 중':'투표 확정'}</button><div class="counter">${room.players.filter(p=>p.voted).length} / ${room.players.length}명 투표 완료</div></div>`);
   if(!already){
     document.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>{state.voted=b.dataset.vote;renderVoting();});
     document.getElementById('cast').onclick=()=>socket.emit('vote:cast',{targetId:state.voted},res=>{if(!res?.ok)toast(res?.error||'투표할 수 없습니다.');else toast('투표 확정!');});
@@ -433,13 +450,16 @@ function historySeat(name,before,after){
 }
 function historyHtml(history){
   return '<div class="card history-panel"><h2>밤에 카드가 이렇게 바뀌었어요</h2><p class="hint">위에서 아래로 실제 행동 순서입니다. 큰 카드가 각 행동 직후 받은 카드예요.</p>'+(history.length?'<div class="history-timeline">'+history.map((h,i)=>{
-    const head=`<div class="history-head"><span class="history-number">${i+1}</span><div><strong>${esc(h.actor)}</strong><span class="history-action">${h.kind==='copy'?'🪞 도플갱어 · 역할 복사':esc(h.role)+' · 카드 교환'}</span></div></div>`;
+    const head=`<div class="history-head"><span class="history-number">${i+1}</span><div><strong>${esc(h.actor)}</strong><span class="history-action">${h.kind==='copy'?'🪞 도플갱어 · 역할 복사':esc(h.role)+' · '+({swap:'카드 교환',rotate:'카드 이동',shield:'보호막',artifact:'유물 배치',transform:'역할 변화',reveal:'공개 확인'}[h.kind]||'행동')}</span></div></div>`;
+    if(h.kind==='rotate')return `<section class="history-step">${head}<p>카드를 ${h.direction==='right'?'오른쪽':'왼쪽'}으로 이동</p>${h.moves.map(m=>`<div class="history-copy"><b>${esc(m.from)} → ${esc(m.to)}</b><div class="history-after">${historyFace(m.card)}</div></div>`).join('')}</section>`;
+    if(!['swap','copy'].includes(h.kind))return `<section class="history-step">${head}<div class="history-copy">${esc(h.target||'')}${h.kind==='shield'?' 🛡️ 보호막':h.kind==='artifact'?' 🏺 '+esc(h.artifact):h.kind==='transform'?' → '+esc(h.toRole):h.hidden?' · 확인 후 다시 덮음':' · 카드 공개'}${h.card?'<div class="history-after">'+historyFace(h.card)+'</div>':''}</div></section>`;
     if(h.kind==='copy')return `<section class="history-step">${head}<div class="history-copy"><div class="history-person">${esc(h.target)}의 역할을 복사</div><div class="history-after">${historyFace({emoji:ROLE_INFO[Object.keys(ROLE_INFO).find(k=>ROLE_INFO[k].name===h.role)]?.emoji,name:h.role})}</div><p class="history-caption">카드는 그대로 · 능력과 승리 조건만 복사</p></div></section>`;
     return `<section class="history-step">${head}<div class="history-swap">${historySeat(h.a,h.cardA,h.cardB)}<span class="history-exchange" aria-label="서로 교환">⇄</span>${historySeat(h.b,h.cardB,h.cardA)}</div></section>`;
   }).join('')+'</div>':'<div class="history-empty">🌙<p>이번 밤에는 카드를 바꾸거나<br>역할을 복사한 사람이 없어요.</p></div>')+'</div>';
 }
 
 function finalRoleHtml(f){
+  if(f?.artifactRole||f?.transformedRole)return `${f.physicalEmoji} ${esc(f.physicalName)} <span class="arrow">→</span> ${f.emoji} ${esc(f.name)}${f.artifactRole?' (유물)':''}`;
   if(f?.physicalRole==='doppelganger'&&f?.copiedRole)return `${f.physicalEmoji} 도플갱어 <span class="arrow">→</span> ${f.emoji} ${esc(f.name)}`;
   return `${f?.emoji||''} ${esc(f?.name||'')}`;
 }
@@ -449,7 +469,7 @@ function renderResult(){
   if('speechSynthesis' in window)window.speechSynthesis.cancel();
   const r=state.result;if(!r)return;
   const byId=new Map(r.players.map(p=>[p.id,p.name]));
-  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>${historyHtml(r.history||[])}`);
+  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}${p.artifact?'<br>🏺 '+esc(p.artifact.name):''}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>${historyHtml(r.history||[])}`);
   document.getElementById('leave').onclick=leaveRoom;
   if(isHost())document.getElementById('again').onclick=()=>socket.emit('game:restart');
 }
@@ -482,7 +502,8 @@ socket.on('room:update',room=>{
   if(wasNight&&room.phase==='night'&&(state.nightPrompt||state.nightReveal))return;
   render();
 });
-socket.on('role:reveal',role=>{state.role=role;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.voted=null;render();});
+socket.on('artifact:reveal',artifact=>{state.artifact=artifact;render();});
+socket.on('role:reveal',role=>{state.artifact=null;state.role=role;state.nightPrompt=null;state.nightReveal=null;state.result=null;state.voted=null;render();});
 socket.on('night:waiting',({message})=>{state.nightPrompt=null;state.nightReveal=null;renderWaiting(message);});
 socket.on('night:prompt',prompt=>{state.nightReveal=null;state.nightPrompt=prompt;renderNight();});
 socket.on('night:reveal',payload=>{state.nightPrompt=null;renderNightReveal(payload);});
@@ -490,7 +511,7 @@ socket.on('night:done',()=>{clearInterval(nightClockInt);state.nightPrompt=null;
 socket.on('discussion:start',()=>{state.nightPrompt=null;});
 socket.on('voting:start',()=>{state.voted=null;});
 socket.on('game:result',r=>{state.result=r;renderResult();});
-socket.on('game:reset',()=>{releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();state.role=null;state.result=null;state.nightPrompt=null;state.nightReveal=null;state.voted=null;});
+socket.on('game:reset',()=>{state.artifact=null;releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();state.role=null;state.result=null;state.nightPrompt=null;state.nightReveal=null;state.voted=null;});
 socket.on('connect',()=>{
   state.myId=socket.id;
   const code=localStorage.getItem('mw_room'),resumeToken=localStorage.getItem('mw_token');

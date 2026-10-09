@@ -1,13 +1,13 @@
 {
-  "name": "midnight-werewolf-mobile",
-  "version": "0.3.0",
+  "name": "midnight-werewolf-daybreak",
+  "version": "1.0.0",
   "private": true,
   "description": "Private mobile one-night social deduction game for friends",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/rules.test.js && node tests/simulation.test.cjs && node tests/client.test.cjs && node tests/lobby-result.test.cjs && node tests/bots.test.cjs && node tests/presets.test.cjs && node tests/fast-bots.test.cjs && node tests/close-room.test.cjs && node tests/night-deadline.test.cjs"
+    "test": "node tests/rules.test.js && node tests/simulation.test.cjs && node tests/client.test.cjs && node tests/lobby-result.test.cjs && node tests/bots.test.cjs && node tests/presets.test.cjs && node tests/fast-bots.test.cjs && node tests/close-room.test.cjs && node tests/night-deadline.test.cjs && node tests/daybreak.test.cjs"
   },
   "dependencies": {
     "express": "^4.21.2",

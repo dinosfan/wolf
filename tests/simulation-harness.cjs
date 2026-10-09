@@ -11,7 +11,7 @@ function harness(seed=1){
    for(const c of clients.values())if(c.online&&(c.id===target||c.rooms.has(target)))c.received.push({event,data:payload});
  }})};
  const express=()=>({use(){}});express.static=()=>{};
- const ctx=vm.createContext({require:n=>n==='express'?express:n==='http'?{createServer:()=>({listen(){}})}:n==='socket.io'?{Server:function(){return io}}:n==='./game-engine'?require(root+'/game-engine.js'):require(n),__dirname:root,process,console,Date:DateFake,Math:math,setTimeout:defer,clearTimeout:clear,setInterval:(f,d)=>defer(f,d,true),clearInterval:clear});
+ const ctx=vm.createContext({require:n=>n==='express'?express:n==='http'?{createServer:()=>({listen(){}})}:n==='socket.io'?{Server:function(){return io}}:n==='./game-engine'?require(root+'/game-engine.js'):require(n.startsWith('./')?path.resolve(root,n):n),__dirname:root,process,console,Date:DateFake,Math:math,setTimeout:defer,clearTimeout:clear,setInterval:(f,d)=>defer(f,d,true),clearInterval:clear});
  vm.runInContext(fs.readFileSync(root+'/server.js','utf8'),ctx);
  function client(name='P'){
   const id='s'+(++clientSeq),handlers={};

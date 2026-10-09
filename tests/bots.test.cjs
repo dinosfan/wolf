@@ -14,7 +14,7 @@ function play(seed,n,forced=null){
  const h=harness(seed),host=h.client();const code=host.call('room:create',{name:'Host'}).code;host.call('room:setPlayerCount',{count:n});
  assert(host.call('room:addBot',{fill:true}).ok);const room=h.room(code);assert.equal(room.players.length,n);assert.equal(room.players.filter(p=>p.bot).length,n-1);assert(!host.call('room:addBot').ok);
  if(forced){
-  const deck=['villager','doppelganger',forced],pool=Object.keys(E.ROLE_INFO).filter(r=>forced==='mason'||r!=='mason').flatMap(r=>Array(E.ROLE_INFO[r].max).fill(r));
+  const deck=['villager','doppelganger',forced],pool=Object.keys(E.ROLE_INFO).filter(k=>!require('../public/daybreak-info').DAYBREAK_ROLES[k]).filter(r=>forced==='mason'||r!=='mason').flatMap(r=>Array(E.ROLE_INFO[r].max).fill(r));
   for(const r of deck)pool.splice(pool.indexOf(r),1);while(deck.length<13)deck.push(pool.shift());
   assert(E.validateRoleSelection(deck,n).ok);h.setDeck(deck);host.call('room:setRoles',{roles:deck});
   h.ctx.forced=forced;h.ctx.r=room;vm.runInContext("const originalBotPayload=botNightPayload; botNightPayload = prompt => prompt.stage === 'copy' ? {targets:[prompt.others.find(p=>r.players.find(x=>x.id===p.id).initialCard.role===forced).id]} : originalBotPayload(prompt);",h.ctx);
@@ -36,7 +36,7 @@ function play(seed,n,forced=null){
  assert(host.call('room:removeBot',{playerId:room.players[1].id}).ok);assert.equal(room.players.length,n-1);assert(host.call('room:addBot').ok);
  assert(host.call('room:leave').ok);assert(!h.room(code),'No bot-only rooms remain');games++;
 }
-for(const r of Object.keys(E.ROLE_INFO).filter(r=>r!=='doppelganger'))play(games+1,10,r);
+for(const r of Object.keys(E.ROLE_INFO).filter(k=>!require('../public/daybreak-info').DAYBREAK_ROLES[k]).filter(r=>r!=='doppelganger'))play(games+1,10,r);
 for(let i=0;i<200;i++)play(i+40,3+i%8);
 {
  const h=harness(),host=h.client(),guest=h.client(),code=host.call('room:create',{name:'H'}).code;guest.call('room:join',{code,name:'G'});
