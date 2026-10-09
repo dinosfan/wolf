@@ -15,7 +15,7 @@ function auth(b){const r=room(b.code),p=r.players.find(p=>p.token===b.token);ass
 function notify(r){for(const res of [...r.clients]){try{res.write('data: refresh\n\n')}catch{r.clients.delete(res)}}}
 function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();notify(r);}
 function publicState(r,p){
- return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,
+ return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,
@@ -23,8 +23,9 @@ function publicState(r,p){
  history:r.history,results:r.results,winner:r.winner};
 }
 function begin(r){
- const deck=shuffle(Array.from({length:52},(_,i)=>i));
- r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*13,(i+1)*13));p.ready=false;});
+ const deck=shuffle(Array.from({length:r.maxNum*4},(_,i)=>i));
+ const per=r.size===4?13:12;
+ r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*per,(i+1)*per),r.maxNum);p.ready=false;});
  const p=r.players.find(x=>x.hand.includes((3-1)*4+0));
  r.turn=p.seat;r.leader=p.seat;r.trick=null;r.passes=0;r.round++;r.stage='playing';r.results=null;r.winner=null;
  r.history=[r.players[r.turn].name+'님이 구름 3을 가져 선이 됐습니다.'];
@@ -40,7 +41,7 @@ function scoring(r,winner){
 }
 function action(b){
  const [r,p]=auth(b),host=()=>assert(p.token===r.hostToken,'방장만 할 수 있어요.');
- const next=i=>(i+1)%4;
+ const next=i=>(i+1)%r.size;
  if(b.type==='ready'){
   assert(r.stage==='lobby','대기실에서만 준비할 수 있어요.');p.ready=!!b.ready;touch(r);
  }else if(b.type==='shuffle'){
@@ -48,7 +49,7 @@ function action(b){
   shuffle(r.players).forEach((q,i)=>q.seat=i);
   r.players.sort((a,b)=>a.seat-b.seat);r.players.forEach(q=>q.ready=false);touch(r,'좌석 순서를 섞었습니다.');
  }else if(b.type==='start'){
-  host();assert(r.stage==='lobby'&&r.players.length===4&&r.players.every(p=>p.ready),'네 명 모두 준비해야 시작할 수 있어요.');begin(r);
+  host();assert(r.stage==='lobby'&&r.players.length===r.size&&r.players.every(p=>p.ready),'설정된 인원 모두 준비해야 시작할 수 있어요.');begin(r);
  }else if(b.type==='nextRound'){
   host();assert(r.stage==='roundEnd','라운드 종료 후에 가능합니다.');begin(r);
  }else if(b.type==='newMatch'){
@@ -59,7 +60,7 @@ function action(b){
   assert(r.stage==='playing'&&p.seat===r.turn,'내 차례에만 패스할 수 있어요.');
   assert(r.trick,'선 플레이어는 패스할 수 없어요.');
   r.passes++;
-  if(r.passes>=3){
+  if(r.passes>=r.size-1){
    const last=r.trick.by;r.turn=last;r.leader=last;r.trick=null;r.passes=0;
    touch(r,p.name+'님 패스 · 모두 패스하여 '+r.players[last].name+'님이 새로 선이 됐습니다.');
   }else{r.turn=next(r.turn);touch(r,p.name+'님이 패스했습니다.');}
@@ -68,13 +69,13 @@ function action(b){
   const ids=b.ids;
   assert(Array.isArray(ids)&&ids.length>0&&ids.length<=5&&ids.every(Number.isInteger)&&new Set(ids).size===ids.length,'선택한 타일을 확인해 주세요.');
   assert(ids.every(id=>p.hand.includes(id)),'내 패에 없는 타일은 낼 수 없어요.');
-  const ev=R.evaluate(ids);assert(ev,'허용되는 조합이 아니에요. (1·2·3·5장만 가능)');
+  const ev=R.evaluate(ids,r.maxNum);assert(ev,'허용되는 조합이 아니에요. (1·2·3·5장만 가능)');
   if(r.trick){
    assert(ev.size===r.trick.ev.size,'앞사람과 같은 개수로 내야 해요.');
    assert(R.compare(ev,r.trick.ev)>0,'더 높은 족보를 내야 해요.');
   }
   p.hand=p.hand.filter(id=>!ids.includes(id));
-  r.trick={by:p.seat,ids:R.sortTiles(ids),ev};r.passes=0;r.leader=p.seat;
+  r.trick={by:p.seat,ids:R.sortTiles(ids,r.maxNum),ev};r.passes=0;r.leader=p.seat;
   r.turn=next(p.seat);
   touch(r,p.name+'님이 '+ev.name+' '+ids.length+'장을 냈습니다.');
   if(!p.hand.length)scoring(r,p.seat);
@@ -99,15 +100,15 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/health')return json(res,200,{ok:true,name:'Lexio four player'});
   if(req.method==='POST'&&url.pathname==='/api/create'){
-   const b=await data(req),name=String(b.name||'').trim().slice(0,14);
-   assert(name,'닉네임을 적어 주세요.');let c=code();while(rooms.has(c))c=code();
+   const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=Number(b.size??4);
+   assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=5,'게임 인원은 3~5명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
-   const r={code:c,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
+   const r={code:c,size,maxNum:size===3?9:size===4?13:15,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
    rooms.set(c,r);return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
    const b=await data(req),r=room(b.code),name=String(b.name||'').trim().slice(0,14);
-   assert(r.stage==='lobby'&&r.players.length<4,'참가할 수 없는 방이에요.');
+   assert(r.stage==='lobby'&&r.players.length<r.size,'참가할 수 없는 방이에요.');
    assert(name&&!r.players.some(p=>p.name===name),'이미 쓰는 닉네임이거나 이름이 비어 있어요.');
    const p={seat:r.players.length,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
    r.players.push(p);touch(r,name+'님이 참가했습니다.');
