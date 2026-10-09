@@ -606,6 +606,8 @@ function finishWithoutReveal(room, player, cb, result = {}) {
 function performRoleAction(room, player, actionRole, payload, cb, wrapperRole = actionRole) {
   if(DB.roles[actionRole])return DB.perform(room,player,actionRole,payload,cb,wrapperRole);
   if(['robber','drunk','insomniac'].includes(actionRole)&&DB.shielded(room,player.id))return finishWithoutReveal(room,player,cb,{skipped:true});
+  const eligible=room.players.filter(p=>p.id!==player.id&&!DB.shielded(room,p.id)).length;
+  if((actionRole==='robber'&&eligible===0)||(actionRole==='troublemaker'&&eligible<2))return finishWithoutReveal(room,player,cb,{skipped:true});
   const targets = Array.isArray(payload.targets) ? payload.targets : [];
   const centerIndexes = Array.isArray(payload.centerIndexes) ? payload.centerIndexes : [];
   const type = payload.type;
