@@ -285,7 +285,7 @@ function renderNight(){
   } else if(p.role==='doppelganger' && p.stage==='copy'){
     extra=`<div class="hint">${esc(p.instructions)}</div>${playerChoices(p.others,1)}`;
   } else if(actionRole==='werewolf'){
-    if(p.solo && p.loneWolfCenter) extra=`<div class="hint">${esc(p.instructions)}</div>${centerButtons(1)}`;
+    if(p.solo && p.loneWolfCenter) extra=`<div class="hint">${esc(p.instructions)}</div>${p.mates?.length?'<div class="result-banner">🐺 함께 있는 늑대: '+p.mates.map(x=>esc(x.name)).join(', ')+'</div>':''}${centerButtons(1)}`;
     else extra=`<div class="hint">${esc(p.instructions)}</div><div class="result-banner">${p.mates?.length?'🐺 '+p.mates.map(x=>esc(x.name)).join(', '):'함께 깨어난 다른 늑대가 없습니다.'}</div>`;
   } else if(actionRole==='minion'){
     extra=`<div class="hint">${esc(p.instructions)}</div><div class="result-banner">${p.wolves?.length?'🐺 '+p.wolves.map(x=>esc(x.name)).join(', '):'플레이어 중 늑대인간이 없습니다.'}</div>`;
