@@ -26,6 +26,7 @@ let state = {
   result:null,
   selected:[],
   voted:null,
+  replayStep:0,
   narrationEnabled:null,
   seerMode:null
 };
@@ -385,13 +386,17 @@ function renderNightReveal(payload){
   document.getElementById('ackReveal').onclick=()=>{state.nightReveal=null;state.nightPrompt=null;renderWaiting('밤이 계속 진행 중입니다…');socket.emit('night:ack');};
 }
 
+function claimLabel(role){const r=ROLE_INFO[role];return r?r.emoji+' '+r.name:'미주장';}
+function claimPeople(){return '<div class="card"><h2>참가자 · 역할 주장</h2><p class="hint">본인이 선택한 주장입니다. 실제 카드를 확인한 정보가 아니며 거짓말도 가능합니다.</p>'+state.room.players.map(p=>'<div class="player claim-player"><span class="player-name">'+esc(p.name)+'</span><strong class="claim-badge">'+esc(claimLabel(p.claimRole))+'</strong></div>'+((p.claimHistory||[]).length>1?'<details class="claim-history"><summary>주장 변경 기록</summary>'+p.claimHistory.map(x=>esc(claimLabel(x.role))).join(' → ')+'</details>':'')).join('')+'</div>';}
+function myClaimControl(){const own=me();return '<div class="card"><h2>나의 역할 주장</h2><p class="hint">처음 카드든 추측한 최종 카드든 자유롭게 주장하세요. 변경 기록은 모두 볼 수 있고, 투표 시작 후에는 수정할 수 없습니다.</p><label for="claimRole">주장할 역할</label><select id="claimRole" class="input"><option value="">미주장 · 주장 지우기</option>'+Object.entries(ROLE_INFO).map(([k,r])=>'<option value="'+k+'" '+(own?.claimRole===k?'selected':'')+'>'+r.emoji+' '+r.name+'</option>').join('')+'</select></div>';}
 function renderDiscussion(){
   clearInterval(timerInt);
   releaseHostWakeLock();
   const room=state.room;
   const rc=countRoles(room.selectedRoles||[]);
   const roleSummary=Object.entries(ROLE_INFO).filter(([k])=>rc[k]).map(([k,r])=>`<span class="role-token">${r.emoji} ${r.name}${rc[k]>1?` ×${rc[k]}`:''}</span>`).join('');
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">낮 · 토론</div><div id="timer" class="timer">--:--</div><div class="hint center">밤에 확인한 정보와 거짓말을 이용해 최종 카드의 늑대를 찾아내세요. 밤이 끝난 뒤에는 카드를 다시 볼 수 없습니다.</div><div class="role-tokens">${roleSummary}</div>${isHost()?'<button id="voteNow" class="btn secondary">토론 종료 · 바로 투표</button>':''}</div><div class="card"><h2>참가자</h2>${room.players.map(p=>`<div class="player"><span class="player-name">${esc(p.name)}</span></div>`).join('')}</div>`);
+  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">낮 · 토론</div><div id="timer" class="timer">--:--</div><div class="hint center">밤에 확인한 정보와 거짓말을 이용해 최종 카드의 늑대를 찾아내세요. 밤이 끝난 뒤에는 카드를 다시 볼 수 없습니다.</div><div class="role-tokens">${roleSummary}</div>${isHost()?'<button id="voteNow" class="btn secondary">토론 종료 · 바로 투표</button>':''}</div>${myClaimControl()}${claimPeople()}`);
+  document.getElementById('claimRole').onchange=e=>socket.emit('claim:set',{role:e.target.value||null},res=>{if(!res?.ok){toast(res?.error);renderDiscussion();}});
   const timer=document.getElementById('timer');
   const tick=()=>{const ms=Math.max(0,(room.discussionEndsAt||Date.now())-Date.now()),s=Math.ceil(ms/1000),m=Math.floor(s/60),ss=s%60;timer.textContent=`${m}:${String(ss).padStart(2,'0')}`;timer.classList.toggle('warn',s<=30)};
   tick();timerInt=setInterval(tick,250);
@@ -402,7 +407,7 @@ function renderVoting(){
   clearInterval(timerInt);
   const room=state.room,self=me(),already=!!self?.voted;
   const options=room.players.filter(p=>p.id!==state.myId);
-  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">최종 투표</div><h2 class="center">누구를 지목할까?</h2><div class="hint center">공식 규칙대로 <b>자기 자신에게는 투표할 수 없습니다.</b><br>최다 득표자가 죽고 최다 득표가 동률이면 모두 죽습니다. 최고 득표가 1표뿐이면 아무도 죽지 않습니다.</div><div class="vote-grid">${options.map(p=>`<button class="vote ${state.voted===p.id?'selected':''}" data-vote="${p.id}" ${already?'disabled':''}>${esc(p.name)}</button>`).join('')}</div><button id="cast" class="btn" ${already||!state.voted?'disabled':''}>${already?'투표 완료 · 결과 기다리는 중':'투표 확정'}</button><div class="counter">${room.players.filter(p=>p.voted).length} / ${room.players.length}명 투표 완료</div></div>`);
+  app.innerHTML=shell(`${topbar()}<div class="card"><div class="center muted">최종 투표</div><h2 class="center">누구를 지목할까?</h2><div class="hint center">공식 규칙대로 <b>자기 자신에게는 투표할 수 없습니다.</b><br>최다 득표자가 죽고 최다 득표가 동률이면 모두 죽습니다. 최고 득표가 1표뿐이면 아무도 죽지 않습니다.</div><div class="vote-grid">${options.map(p=>`<button class="vote ${state.voted===p.id?'selected':''}" data-vote="${p.id}" ${already?'disabled':''}>${esc(p.name)}<span class="vote-claim">${esc(claimLabel(p.claimRole))}</span></button>`).join('')}</div><button id="cast" class="btn" ${already||!state.voted?'disabled':''}>${already?'투표 완료 · 결과 기다리는 중':'투표 확정'}</button><div class="counter">${room.players.filter(p=>p.voted).length} / ${room.players.length}명 투표 완료</div></div>`);
   if(!already){
     document.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>{state.voted=b.dataset.vote;renderVoting();});
     document.getElementById('cast').onclick=()=>socket.emit('vote:cast',{targetId:state.voted},res=>{if(!res?.ok)toast(res?.error||'투표할 수 없습니다.');else toast('투표 확정!');});
@@ -444,13 +449,23 @@ function finalRoleHtml(f){
   if(f?.physicalRole==='doppelganger'&&f?.copiedRole)return `${f.physicalEmoji} 도플갱어 <span class="arrow">→</span> ${f.emoji} ${esc(f.name)}`;
   return `${f?.emoji||''} ${esc(f?.name||'')}`;
 }
+function replayHtml(r){
+ const frames=replayFrames(r);state.replayStep=Math.max(0,Math.min(state.replayStep||0,frames.length-1));const f=frames[state.replayStep];
+ const body=f.seats?'<div class="replay-seats">'+f.seats.map(s=>'<div class="replay-seat"><span>'+esc(s.name)+'</span><div>'+historyFace(s.card)+'</div></div>').join('')+'</div>':voteExplanation(r);
+ return '<div class="card replay-panel"><h2>한 판 다시보기</h2><div class="replay-tabs">'+[['처음',0],['밤 이동',frames.length>3?1:0],['최종',frames.length-2],['투표·승패',frames.length-1]].map(([label,index])=>'<button class="mini-btn" data-replay="'+index+'" aria-pressed="'+(state.replayStep===index)+'">'+label+'</button>').join('')+'</div><div class="replay-title">'+esc(f.title)+'</div><p class="hint">'+esc(f.caption)+'</p>'+body+'<div class="row"><button class="btn secondary" data-replay="'+(state.replayStep-1)+'" '+(state.replayStep===0?'disabled':'')+'>← 이전</button><button class="btn secondary" data-replay="'+(state.replayStep+1)+'" '+(state.replayStep===frames.length-1?'disabled':'')+'>다음 →</button></div><div class="counter">'+(state.replayStep+1)+' / '+frames.length+' 단계</div></div>';
+}
+function voteExplanation(r){
+ const counts=new Map();r.players.forEach(p=>{if(p.vote)counts.set(p.vote,(counts.get(p.vote)||0)+1)});const max=Math.max(0,...counts.values()),base=new Set(max>=2?[...counts].filter(([,n])=>n===max).map(([id])=>id):[]),names=new Map(r.players.map(p=>[p.id,p.name]));
+ return '<p class="hint">'+(max<2?'최다 득표가 1표 이하라 투표로 죽는 사람은 없습니다.':'최다 '+max+'표 · 동률이면 모두 사망합니다.')+'</p>'+r.players.map(p=>'<div class="reveal-row"><div class="reveal-name">'+esc(p.name)+' · '+(counts.get(p.id)||0)+'표 '+(r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':'')+'</div><div class="reveal-role">최종 '+finalRoleHtml(p.final)+'<br>투표 → '+esc(names.get(p.vote)||'-')+(r.killedIds.includes(p.id)?'<br><span class="killed">'+(base.has(p.id)?'최다 득표로 사망':'사냥꾼 효과로 사망')+'</span>':'<br>생존')+'</div></div>').join('');
+}
 function renderResult(){
   clearInterval(timerInt);
   releaseHostWakeLock();
   if('speechSynthesis' in window)window.speechSynthesis.cancel();
   const r=state.result;if(!r)return;
   const byId=new Map(r.players.map(p=>[p.id,p.name]));
-  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div><div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>${historyHtml(r.history||[])}`);
+  app.innerHTML=shell(`${topbar()}<button id="leave" class="btn secondary">← 나가기 · 처음으로</button><div class="result-banner">${esc(r.winnerText)}</div>${replayHtml(r)}<div class="card"><h2>최종 공개</h2>${r.players.map(p=>`<div class="reveal-row ${r.killedIds.includes(p.id)?'dead':''}"><div class="reveal-name">${esc(p.name)} ${r.winnerIds?.includes(p.id)?'<span class="winner">승리</span>':''} ${r.killedIds.includes(p.id)?'<span class="killed">죽음</span>':''}</div><div class="reveal-role">시작: ${p.initial.emoji} ${esc(p.initial.name)}<br>최종: ${finalRoleHtml(p.final)}<br><span class="muted">투표 → ${esc(byId.get(p.vote)||'-')} · 주장: ${esc(claimLabel(p.claimRole))}</span></div></div>`).join('')}<div class="section-title">가운데 카드</div><div class="center-cards">${r.center.map(c=>`<div class="center-card final-card">${finalRoleHtml(c)}</div>`).join('')}</div>${isHost()?'<button id="again" class="btn">같은 역할 구성으로 다시하기</button>':'<div class="hint center">방장이 다음 판을 시작할 수 있습니다.</div>'}</div>${historyHtml(r.history||[])}`);
+  document.querySelectorAll('[data-replay]').forEach(b=>b.onclick=()=>{state.replayStep=Number(b.dataset.replay);renderResult();});
   document.getElementById('leave').onclick=leaveRoom;
   if(isHost())document.getElementById('again').onclick=()=>socket.emit('game:restart');
 }
@@ -490,7 +505,7 @@ socket.on('night:reveal',payload=>{state.nightPrompt=null;renderNightReveal(payl
 socket.on('night:done',()=>{clearInterval(nightClockInt);state.nightPrompt=null;state.nightReveal=null;if(state.room?.phase==='night')renderWaiting('확인 시간이 끝났습니다. 눈을 감아 주세요.');});
 socket.on('discussion:start',()=>{state.nightPrompt=null;});
 socket.on('voting:start',()=>{state.voted=null;});
-socket.on('game:result',r=>{state.result=r;renderResult();});
+socket.on('game:result',r=>{state.replayStep=0;state.result=r;renderResult();});
 socket.on('game:reset',()=>{releaseHostWakeLock();if('speechSynthesis' in window)window.speechSynthesis.cancel();state.role=null;state.result=null;state.nightPrompt=null;state.nightReveal=null;state.voted=null;});
 socket.on('connect',()=>{
   state.myId=socket.id;

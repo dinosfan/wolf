@@ -10,6 +10,7 @@ function ui({speech=true,duration=20000}={}){
  const synth={getVoices:()=>[{lang:'ko-KR'}],speak:u=>{voices.push(u);current=u;if(duration!==null)defer(()=>{if(current===u){current=null;u.onend?.()}},duration)},cancel:()=>{const old=current;current=null;old?.onerror?.()}};
  const window=speech?{speechSynthesis:synth}:{};
  const ctx=vm.createContext({io:()=>sock,document,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},navigator:{wakeLock:{request:async()=>({release:async()=>wakeReleased++})}},window,SpeechSynthesisUtterance:function(t){this.text=t},setTimeout:defer,clearTimeout:clear,setInterval:defer,clearInterval:clear,console,Date:class extends Date{static now(){return now}}});
+ vm.runInContext(fs.readFileSync(root+'/public/replay.js','utf8'),ctx);
  vm.runInContext(fs.readFileSync(root+'/public/app.js','utf8'),ctx);
  async function advance(ms){const end=now+ms;while(true){const next=[...timers].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!next)break;now=next[1].at;timers.delete(next[0]);next[1].fn();await Promise.resolve()}now=end;await Promise.resolve()}
  return {ctx,el,sent,voices,storage,handlers,advance,fire:(e,d)=>handlers[e](d),get:s=>vm.runInContext(s,ctx),run:s=>vm.runInContext(s,ctx),html:()=>el('app').innerHTML,timers};
@@ -42,6 +43,8 @@ async function run(){
  const bots=ui();bots.run("state.myId='me'");bots.fire('room:update',{...room,phase:'lobby'});
  assert(bots.html().includes('id="addBot"'));assert(bots.html().includes('id="fillBots"'));bots.el('fillBots').onclick();assert.equal(bots.sent.at(-1).event,'room:addBot');assert.equal(bots.sent.at(-1).data.fill,true);tests++;
  const botGuest=ui();botGuest.run("state.myId='other'");botGuest.fire('room:update',{...room,phase:'lobby'});assert(!botGuest.html().includes('id="addBot"'));tests++;
+ const claims=ui();claims.run("state.myId='me'");claims.fire('room:update',{...room,phase:'discussion',players:room.players.map(p=>({...p,claimRole:p.id==='other'?'werewolf':null,claimHistory:[{role:'seer'},{role:'werewolf'}]}))});assert(claims.html().includes('주장 변경 기록'));assert(claims.html().includes('실제 카드를 확인한 정보가 아니며'));claims.el('claimRole').onchange({target:{value:'tanner'}});assert.equal(claims.sent.at(-1).event,'claim:set');assert.equal(claims.sent.at(-1).data.role,'tanner');tests++;
+ const replay=ui();replay.run("state.myId='me'");replay.fire('room:update',{...room,phase:'result'});replay.fire('game:result',{winnerText:'마을 승리',players:[{id:'me',name:'Me',initial:{id:'c1',role:'seer',emoji:'🔮',name:'예언자'},final:{id:'c1',role:'seer',emoji:'🔮',name:'예언자'},vote:'other'},{id:'other',name:'Other',initial:{id:'c2',role:'werewolf',name:'늑대인간'},final:{id:'c2',role:'werewolf',name:'늑대인간'},vote:'me'}],center:[],initialCenter:[],killedIds:['other'],winnerIds:['me'],history:[]});assert(replay.html().includes('한 판 다시보기'));assert(replay.html().includes('처음 카드'));replay.run('state.replayStep=3;renderResult()');assert(replay.html().includes('투표 · 승패'));assert(replay.html().includes('사냥꾼 효과로 사망'));tests++;
  console.log(`Client/voice checks passed: ${tests} scenarios (selection/reveal persistence, ready state, hidden cards, host-only voice, delayed TTS, unsupported/stalled TTS, result leave, pregame time, bot controls).`);
 }
 run().catch(e=>{console.error(e);process.exitCode=1});

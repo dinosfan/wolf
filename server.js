@@ -157,6 +157,8 @@ function publicRoom(room) {
       name: p.name,
       connected: p.connected,
       bot: !!p.bot,
+      claimRole: ['discussion','voting','result'].includes(room.phase)?p.claimRole||null:null,
+      claimHistory: ['discussion','voting','result'].includes(room.phase)?p.claimHistory||[]:[],
       voted: !!p.vote
     })),
     selectedRoles: room.selectedRoles,
@@ -568,8 +570,9 @@ function resolveGame(room) {
       name: p.name,
       initial: cardFaceView(p.initialCard),
       final: finalRoleView(room.currentCards.get(p.id)),
-      vote: p.vote
+      vote: p.vote,claimRole:p.claimRole||null,claimHistory:p.claimHistory||[]
     })),
+    initialCenter:room.initialCenter||[],
     history: room.actionHistory || [],
     center: room.centerCards.map(finalRoleView)
   };
@@ -701,7 +704,7 @@ function handleNightAction(room, playerId, payload = {}, cb) {
           const targetCard = room.currentCards.get(tid);
           const copiedRole = effectiveRole(targetCard);
           player.initialCard.doppelRole = copiedRole;
-          (room.actionHistory ||= []).push({kind:'copy',actor:player.name,target:room.players.find(p=>p.id===tid).name,role:ROLE_INFO[copiedRole].name});
+          (room.actionHistory ||= []).push({kind:'copy',cardId:player.initialCard.id,actor:player.name,target:room.players.find(p=>p.id===tid).name,role:ROLE_INFO[copiedRole].name});
 
           const seen = [cardFaceView(targetCard)];
           const copiedInfo = ROLE_INFO[copiedRole];
@@ -1002,12 +1005,14 @@ io.on('connection', socket => {
     room.currentCards = new Map();
     room.players.forEach((p, i) => {
       p.initialCard = deck[i];
+      p.claimRole=null;p.claimHistory=[];
       p.vote = null;
       p.nightState = null;
       p.pendingReveal = null;
       room.currentCards.set(p.id, deck[i]);
     });
     room.centerCards = deck.slice(room.players.length);
+    room.initialCenter=room.centerCards.map(cardFaceView);
     room.phase = 'roleReveal';
     room.nightIndex = 0;
     room.activeNightRole = null;
@@ -1059,6 +1064,15 @@ io.on('connection', socket => {
     if (room && room.hostId === socket.id && room.phase === 'discussion') beginVoting(room);
   });
 
+  socket.on('claim:set',(payload={},cb)=>{
+    const role=payload?.role;
+    const room=getRoomOf(socket),player=room?.players.find(p=>p.id===socket.id);
+    if(!player||room.phase!=='discussion')return cb?.({ok:false,error:'역할 주장은 토론 시간에만 바꿀 수 있습니다.'});
+    if(role!==null&&(typeof role!=='string'||!Object.hasOwn(ROLE_INFO,role)))return cb?.({ok:false,error:'알 수 없는 역할입니다.'});
+    if((player.claimRole||null)!==role){player.claimRole=role;player.claimHistory=[...(player.claimHistory||[]),{role}].slice(-8);emitRoom(room);}
+    cb?.({ok:true});
+  });
+
   socket.on('vote:cast', ({ targetId }, cb) => castVote(getRoomOf(socket), socket.id, targetId, cb));
 
   socket.on('game:restart', () => {
@@ -1071,11 +1085,12 @@ io.on('connection', socket => {
       p.vote = null;
       p.nightState = null;
       p.pendingReveal = null;
+      p.claimRole=null;p.claimHistory=[];
       delete p.initialCard;
     });
     room.currentCards = new Map();
     room.centerCards = [];
-    room.actionHistory = [];
+    room.actionHistory = [];room.initialCenter=[];
     room.activeNightRole = null;
     room.finishingNightStep = false;
     room.winnerText = null;

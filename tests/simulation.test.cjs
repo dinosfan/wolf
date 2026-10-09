@@ -90,6 +90,7 @@ function play(deck,copyRole=null,index=0){
  for(let i=1;i<n;i++)assert(cs[i].call('vote:cast',{targetId:pick(cs.filter(c=>c!==cs[i])).id}).ok);
  assert.equal(room.phase,'result');const out=oracle(room.players,ref),reveal=cs[0].take('game:result');
  assert.deepEqual([...reveal.killedIds].sort(),out.dead);assert.deepEqual([...reveal.winningTeams].sort(),out.teams);assert.deepEqual([...reveal.winnerIds].sort(),out.winners);
+ const frames=require('../public/replay').replayFrames(reveal),beforeFinal=frames.at(-3);for(const p of reveal.players){const seat=beforeFinal.seats.find(s=>s.key===p.id);assert.equal(seat.card.id,p.final.id);if(p.final.copiedRole)assert(seat.card.displayName.includes(p.final.name));}reveal.center.forEach((c,i)=>assert.equal(beforeFinal.seats.find(s=>s.key==='center'+i).card.id,c.id));
  const moved=new Map();
  for(const entry of reveal.history){
   if(entry.kind==='swap'){
