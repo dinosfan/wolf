@@ -14,9 +14,40 @@ function tileView(id,opts={}){
  '<span class="figure">'+SYMS[t.s]+'</span><span class="digit">'+t.n+'</span><span class="letter">'+SUITS[t.s]+'</span></button>';
 }
 function toast(msg){toastEl.textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.textContent='',3300)}
-function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~5인 대전')+'</small></div><button class="mini alt" onclick="showRules()">규칙</button></header>'}
+function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~5인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button></div></header>'}
 function popup(markup){overlay.innerHTML='<div class="dialog">'+markup+'<button class="alt full" onclick="closeOverlay()">닫기</button></div>';overlay.hidden=false}
 function closeOverlay(){overlay.hidden=true;overlay.innerHTML=''}
+function rankTile(n,suit){
+ return '<span class="rank-tile s'+suit+'" aria-label="'+SUITS[suit]+' '+n+'"><span class="rank-tile-symbol">'+SYMS[suit]+'</span><span class="rank-tile-num">'+n+'</span></span>';
+}
+function rankTiles(list){
+ return '<div class="rank-tile-row">'+list.map(([n,s])=>rankTile(n,s)).join('')+'</div>';
+}
+function showRanking(){
+ const count=state?.size||4,max=count===3?9:count===5?15:13;
+ const examples=[
+  {name:'스트레이트 플러시',desc:'같은 문양 + 연속된 숫자 5장',list:[[3,3],[4,3],[5,3],[6,3],[7,3]]},
+  {name:'포카드',desc:'같은 숫자 4장 + 다른 숫자 1장',list:[[8,0],[8,1],[8,2],[8,3],[3,0]]},
+  {name:'풀하우스',desc:'같은 숫자 3장 + 같은 숫자 2장',list:[[7,0],[7,1],[7,2],[5,0],[5,3]]},
+  {name:'플러시',desc:'문양이 같은 타일 5장',list:[[3,2],[4,2],[6,2],[8,2],[9,2]]},
+  {name:'스트레이트',desc:'숫자가 연속된 타일 5장',list:[[3,0],[4,1],[5,2],[6,3],[7,0]]}
+ ];
+ const ranked=examples.map((item,i)=>'<div class="ranking-card">'+
+ '<div class="ranking-title"><span class="ranking-position">'+(i+1)+'</span><strong>'+item.name+'</strong><span class="ranking-arrow">'+(i===0?'최강':'↓')+'</span></div>'+
+ '<p>'+item.desc+'</p>'+rankTiles(item.list)+'</div>').join('');
+ const special=[max-3,max-2,max-1,max,1];
+ const note='<section class="ranking-note"><h3>인원별 특수 스트레이트 · '+count+'인</h3>'+
+ '<p>강한 순서: ① 1·2·3·4·5　② 2·3·4·5·6　③ '+special.join('·')+'</p>'+
+ '<p>최고 숫자는 <b>2 &gt; 1 &gt; '+max+'</b>이며, 같은 숫자면 <b>☀ 해 &gt; ☾ 달 &gt; ★ 별 &gt; ☁ 구름</b> 순서야.</p></section>';
+ popup('<div class="ranking-heading"><span class="pill">원작 족보 기준 · '+count+'인용</span><h2>🏆 렉시오 족보표</h2><p>5장 조합은 <b>위에 있을수록 강함!</b></p></div>'+
+ '<div class="ranking-rule">앞사람과 <b>같은 장수</b>의 더 강한 족보만 낼 수 있어. 선을 새로 잡으면 자유롭게 1·2·3·5장 중 선택 가능.</div>'+
+ '<section class="ranking-group"><h3>5장 메이드 · 강한 순서 ↓</h3>'+ranked+'</section>'+
+ '<section class="ranking-other"><h3>1·2·3장 조합</h3>'+
+ '<div class="ranking-other-item"><b>싱글 · 1장</b>'+rankTiles([[7,0]])+'</div>'+
+ '<div class="ranking-other-item"><b>페어 · 같은 숫자 2장</b>'+rankTiles([[7,0],[7,3]])+'</div>'+
+ '<div class="ranking-other-item"><b>트리플 · 같은 숫자 3장</b>'+rankTiles([[7,0],[7,1],[7,2]])+'</div>'+
+ '<p>싱글·페어는 숫자가 같으면 문양으로 비교하고, 트리플은 숫자로 비교해. <b>4장만 단독 제출은 불가</b>해.</p></section>'+note);
+}
 function showRules(){
 const msg='<h2>렉시오 룰북 · 3~5인</h2>'+
  '<p>☁ 구름 &lt; ★ 별 &lt; ☾ 달 &lt; ☀ 해. 숫자는 3부터 차례대로 올라가며 1과 2가 가장 강합니다.</p>'+
