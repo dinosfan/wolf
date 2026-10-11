@@ -4,3 +4,12 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 .players[data-size="3"]{grid-template-columns:repeat(2,minmax(0,1fr))}
 .players[data-size="5"]{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(min-width:620px){.players[data-size="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}.players[data-size="5"]{grid-template-columns:repeat(5,minmax(0,1fr))}}
+
+/* Solo practice and visible computer players */
+.practice-start{background:#314e57!important;border:1px solid #70aeb7!important;color:#e5ffff!important;font-size:17px;min-height:52px}
+.bot-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:7px 0 14px}
+.bot-controls button{font-size:12px;line-height:1.35;padding:10px 7px}
+.bot-badge{display:inline-block;vertical-align:middle;background:#225d60;border:1px solid #64a8b4;color:#b6fcf3;border-radius:5px;font-size:10px;letter-spacing:.5px;padding:1px 4px;margin-left:4px}
+.bot-remove{background:#344358;color:#e9e9f6;display:inline-block;margin-top:7px}
+.bot-thinking{display:inline-block;color:#ffe8ad;font-size:12px;margin-left:6px;animation:blink 1s ease-in-out infinite alternate}
+@keyframes blink{from{opacity:.45}to{opacity:1}}
