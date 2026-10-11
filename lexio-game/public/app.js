@@ -58,26 +58,39 @@ async function invoke(type,extras={}){
  }catch(e){toast(e.message)}finally{pending=false}
 }
 async function create(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/create',{name:document.getElementById('newname').value,size:Number(document.getElementById('newsize').value)}))}catch(e){toast(e.message)}finally{pending=false}}
+async function practice(){
+ if(pending)return;
+ pending=true;
+ try{
+  const name=document.getElementById('newname').value.trim()||'플레이어';
+  const size=Number(document.getElementById('newsize').value);
+  store(await request('/api/create',{name,size,practice:true}));
+ }catch(e){toast(e.message)}finally{pending=false}
+}
 async function join(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/join',{name:document.getElementById('joinname').value,code:document.getElementById('joincode').value}))}catch(e){toast(e.message)}finally{pending=false}}
 function welcome(){
  return head()+'<section class="intro"><span class="pill">☁ ★ ☾ ☀</span><h1>친구와 한 판,<br>렉시오</h1><p>각자 휴대폰으로 비밀 타일을 받고,<br>정면에서 친구와 심리전을 펼쳐 보세요.</p></section>'+
- '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력" required><label for="newsize">플레이 인원</label><select class="field" id="newsize"><option value="3">3명 · 12장씩</option><option value="4" selected>4명 · 13장씩</option><option value="5">5명 · 12장씩</option></select><button class="full">방 생성</button></form></section>'+
+ '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><label for="newsize">플레이 인원</label><select class="field" id="newsize"><option value="3" selected>3명 · 12장씩</option><option value="4">4명 · 13장씩</option><option value="5">5명 · 12장씩</option></select><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">연습하기를 누르면 빈자리를 봇으로 채워서 바로 시작해요. 친구 대전은 봇 없이도 가능합니다.</p></section>'+
  '<section class="panel"><h2>친구 방에 참가</h2><form onsubmit="join(event)"><label for="joinname">내 닉네임</label><input class="field" id="joinname" maxlength="14" autocomplete="off" placeholder="이름 입력" required><label for="joincode">5자리 방 코드</label><input class="field" id="joincode" maxlength="5" autocomplete="off" placeholder="ABCDE" value="'+html(params.get('room')||'')+'" required><button class="alt full">참가</button></form></section>';
 }
 function lobby(){
- const names=state.players.map((p,i)=>'<div class="person"><h3>'+html(p.name)+(state.seat===p.seat?' (나)':'')+'</h3><p>자리 '+(i+1)+' · '+(p.ready?'준비 완료 ✅':'준비 대기 ⏳')+'</p></div>').join('');
- return head()+'<section class="panel"><span class="pill">대기실 · '+state.players.length+'/'+state.size+'명</span><div class="invite">'+html(state.code)+'</div><button class="alt full" onclick="copyInvite()">친구에게 초대 주소 복사 <span>↗</span></button><p class="muted">설정한 '+state.size+'명이 입장한 뒤 모두 준비 버튼을 누르세요.</p></section>'+
- '<h2>참가자</h2><div class="players" data-size="'+state.size+'">'+names+Array.from({length:state.size-state.players.length},(_,i)=>'<div class="person"><h3>빈 자리</h3><p>참가 대기 중</p></div>').join('')+'</div>'+
- '<section class="panel"><p>나의 자리: '+(state.seat+1)+'번</p><button class="full" onclick="invoke(\'ready\',{ready:'+(!state.players[state.seat].ready)+'})">'+(state.players[state.seat].ready?'준비 취소':'준비 완료')+'</button>'+
+ const names=state.players.map((p,i)=>'<div class="person"><h3>'+html(p.name)+(state.seat===p.seat?' (나)':'')+(p.isBot?'<span class="bot-badge">BOT</span>':'')+'</h3><p>자리 '+(i+1)+' · '+(p.ready?'준비 완료 ✅':'준비 대기 ⏳')+'</p>'+(p.isBot&&state.isHost?'<button type="button" class="mini alt bot-remove" onclick="invoke(\'removeBot\',{seat:'+p.seat+'})">봇 제거</button>':'')+'</div>').join('');
+ const slots=Array.from({length:state.size-state.players.length},()=>'<div class="person"><h3>빈 자리</h3><p>참가 대기 중</p></div>').join('');
+ const bots=state.players.filter(p=>p.isBot).length;
+ const canAdd=state.isHost&&state.players.length<state.size;
+ const actions=state.isHost?'<div class="bot-controls"><button type="button" class="alt full" onclick="invoke(\'addBot\')" '+(canAdd?'':'disabled')+'>🤖 봇 1명 추가</button><button type="button" class="alt full" onclick="invoke(\'fillBots\')" '+(canAdd?'':'disabled')+'>🤖 빈자리 전부 봇으로 채우기</button></div>':'';
+ return head()+'<section class="panel"><span class="pill">대기실 · '+state.players.length+'/'+state.size+'명</span><div class="invite">'+html(state.code)+'</div><button class="alt full" onclick="copyInvite()">친구에게 초대 주소 복사 ↗</button><p class="muted">설정한 '+state.size+'명이 입장한 뒤 모두 준비 버튼을 누르세요. 봇은 자동으로 준비됩니다.</p></section>'+
+ '<h2>참가자 <small>봇 '+bots+'명</small></h2><div class="players" data-size="'+state.size+'">'+names+slots+'</div>'+
+ '<section class="panel">'+actions+'<p>나의 자리: '+(state.seat+1)+'번</p><button class="full" onclick="invoke(\'ready\',{ready:'+(!state.players[state.seat].ready)+'})">'+(state.players[state.seat].ready?'준비 취소':'준비 완료')+'</button>'+
  (state.isHost?'<button class="alt full" onclick="invoke(\'shuffle\')">자리 순서 섞기</button><button class="full" '+(state.players.length===state.size&&state.players.every(p=>p.ready)?'':'disabled')+' onclick="invoke(\'start\')">게임 시작하기</button>':'<p class="muted">방장이 게임을 시작합니다.</p>')+
  '<button class="danger full" onclick="leaveRoom()">방 나가기</button></section>';
 }
 function playersList(){
- return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>'<div class="person'+(p.seat===state.turn&&state.stage==='playing'?' active':'')+'"><span class="count">'+p.count+'장</span><h3>'+html(p.name)+(p.seat===state.seat?' · 나':'')+'</h3><p>💰 <span class="bal">'+p.chips+'</span>점'+(p.seat===state.turn&&state.stage==='playing'?' · <b>현재 차례</b>':'')+'</p></div>').join('')+'</div>';
+ return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>'<div class="person'+(p.seat===state.turn&&state.stage==='playing'?' active':'')+'"><span class="count">'+p.count+'장</span><h3>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(p.isBot?' <span class="bot-badge">BOT</span>':'')+'</h3><p>💰 <span class="bal">'+p.chips+'</span>점'+(p.seat===state.turn&&state.stage==='playing'?' · <b>현재 차례</b>':'')+'</p></div>').join('')+'</div>';
 }
 function center(){
  const tr=state.trick;
- return '<section class="tabletop"><div class="status">'+(state.stage==='playing'?'🎲 <strong>'+html(state.players[state.turn].name)+'</strong>의 차례':'라운드 종료')+'</div>'+
+ return '<section class="tabletop"><div class="status">'+(state.stage==='playing'?'🎲 <strong>'+html(state.players[state.turn].name)+'</strong>의 차례'+(state.players[state.turn].isBot?' <span class="bot-thinking">생각 중…</span>':''):'라운드 종료')+'</div>'+
  (tr?'<h2>현재 족보 · '+html(tr.name)+' ('+tr.ids.length+'장)</h2><div class="tiles">'+tr.ids.map(id=>tileView(id,{short:true})).join('')+'</div><small>'+html(state.players[tr.by].name)+'님이 낸 타일 · 연속 패스 '+state.passes+'/'+(state.size-1)+'</small>':
  '<h2>🟡 새 선 플레이어가 자유롭게 냅니다</h2><div class="tiles"><span class="pill">싱글 · 페어 · 트리플 · 메이드</span></div>')+'</section>';
 }
@@ -107,7 +120,7 @@ function result(){
  const summary=state.results||[];
  const sorted=[...summary].sort((a,b)=>b.chips-a.chips);
  return head()+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
- '<div class="summary">'+summary.map(p=>'<div class="sum"><b>'+html(p.name)+(p.seat===state.seat?' · 나':'')+'</b><p class="muted">잔여 '+p.left+'장'+(p.twos?' · 2 ×'+p.twos:'')+'<br>환산 '+p.effective+'장</p><p class="'+(p.delta<0?'neg':'pos')+'">'+(p.delta>0?'+':'')+p.delta+'점</p><p><strong>누적 '+p.chips+'점</strong></p></div>').join('')+'</div>'+
+ '<div class="summary">'+summary.map(p=>'<div class="sum"><b>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(state.players[p.seat].isBot?' 🤖':'')+'</b><p class="muted">잔여 '+p.left+'장'+(p.twos?' · 2 ×'+p.twos:'')+'<br>환산 '+p.effective+'장</p><p class="'+(p.delta<0?'neg':'pos')+'">'+(p.delta>0?'+':'')+p.delta+'점</p><p><strong>누적 '+p.chips+'점</strong></p></div>').join('')+'</div>'+
  (isEnd?'<h2 style="margin-top:18px">🏆 최종 순위</h2><ol class="recent">'+sorted.map(p=>'<li>'+html(p.name)+' · '+p.chips+'점</li>').join('')+'</ol><p class="success">최종 우승: '+html(sorted[0]?.name)+'님!</p>'+
  (state.isHost?'<button class="full" onclick="invoke(\'newMatch\')">새 경기 시작</button>':'<p class="muted">방장이 다음 경기를 준비할 수 있어요.</p>'):
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
