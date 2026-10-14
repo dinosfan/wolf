@@ -81,14 +81,14 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
  font-size:23px;line-height:1;padding:6px 2px;border-radius:10px}
 .emoji-quick:active{background:#4a6381;transform:scale(.91)}
 .win-celebration{position:relative;height:0;pointer-events:none;z-index:10}
-.win-celebration span{position:absolute;left:calc(50% + (var(--i) - 8)*21px);top:0;
+.win-celebration span{position:absolute;left:calc(50% + var(--offset));top:0;
  font-size:23px;color:#f5d484;animation:lexio-win 2.7s ease-out both;
- animation-delay:calc(var(--i)*36ms);text-shadow:0 0 7px #ffbe52}
+ animation-delay:var(--delay);text-shadow:0 0 7px #ffbe52}
 .win-celebration span:nth-child(3n){color:#7fd5f8}
 .win-celebration span:nth-child(4n){color:#a9eec5}
 @keyframes lexio-win{0%{opacity:0;transform:translateY(0) rotate(0) scale(.4)}
  15%{opacity:1}85%{opacity:1}
- 100%{opacity:0;transform:translateY(calc(120px + var(--i)*7px)) rotate(420deg) scale(1.15)}}
+ 100%{opacity:0;transform:translateY(var(--drop)) rotate(420deg) scale(1.15)}}
 @media(max-width:360px){.reaction-bar{padding:9px 7px}.emoji-buttons{gap:4px}.emoji-quick{font-size:21px;min-height:39px}
  .reaction-top>span{font-size:11px}.effect-settings .mini{font-size:9px;padding:6px 4px}}
 @media(prefers-reduced-motion:reduce){.fx-bubble,.fx-tiles .tile,.win-celebration span{animation:none}
