@@ -14,7 +14,7 @@ function tileView(id,opts={}){
  '<span class="figure">'+SYMS[t.s]+'</span><span class="digit">'+t.n+'</span><span class="letter">'+SUITS[t.s]+'</span></button>';
 }
 function toast(msg){toastEl.textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.textContent='',3300)}
-function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~5인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button></div></header>'}
+function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~6인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button></div></header>'}
 function popup(markup){overlay.innerHTML='<div class="dialog">'+markup+'<button class="alt full" onclick="closeOverlay()">닫기</button></div>';overlay.hidden=false}
 function closeOverlay(){overlay.hidden=true;overlay.innerHTML=''}
 function rankTile(n,suit){
@@ -24,7 +24,7 @@ function rankTiles(list){
  return '<div class="rank-tile-row">'+list.map(([n,s])=>rankTile(n,s)).join('')+'</div>';
 }
 function showRanking(){
- const count=state?.size||4,max=count===3?9:count===5?15:13;
+ const count=state?.size||4,max=count===3?9:count===4?13:15;
  const examples=[
   {name:'스트레이트 플러시',desc:'같은 문양 + 연속된 숫자 5장',list:[[3,3],[4,3],[5,3],[6,3],[7,3]]},
   {name:'포카드',desc:'같은 숫자 4장 + 다른 숫자 1장',list:[[8,0],[8,1],[8,2],[8,3],[3,0]]},
@@ -36,7 +36,7 @@ function showRanking(){
  '<div class="ranking-title"><span class="ranking-position">'+(i+1)+'</span><strong>'+item.name+'</strong><span class="ranking-arrow">'+(i===0?'최강':'↓')+'</span></div>'+
  '<p>'+item.desc+'</p>'+rankTiles(item.list)+'</div>').join('');
  const special=[max-3,max-2,max-1,max,1];
- const note='<section class="ranking-note"><h3>인원별 특수 스트레이트 · '+count+'인</h3>'+
+ const note='<section class="ranking-note"><h3>인원별 특수 스트레이트 · '+count+'인'+(count===6?' (확장 규칙)':'')+'</h3>'+
  '<p>강한 순서: ① 1·2·3·4·5　② 2·3·4·5·6　③ '+special.join('·')+'</p>'+
  '<p>최고 숫자는 <b>2 &gt; 1 &gt; '+max+'</b>이며, 같은 숫자면 <b>☀ 해 &gt; ☾ 달 &gt; ★ 별 &gt; ☁ 구름</b> 순서야.</p></section>';
  popup('<div class="ranking-heading"><span class="pill">원작 족보 기준 · '+count+'인용</span><h2>🏆 렉시오 족보표</h2><p>5장 조합은 <b>위에 있을수록 강함!</b></p></div>'+
@@ -49,18 +49,18 @@ function showRanking(){
  '<p>싱글·페어는 숫자가 같으면 문양으로 비교하고, 트리플은 숫자로 비교해. <b>4장만 단독 제출은 불가</b>해.</p></section>'+note);
 }
 function showRules(){
-const msg='<h2>렉시오 룰북 · 3~5인</h2>'+
+const msg='<h2>렉시오 룰북 · 3~6인</h2>'+
  '<p>☁ 구름 &lt; ★ 별 &lt; ☾ 달 &lt; ☀ 해. 숫자는 3부터 차례대로 올라가며 1과 2가 가장 강합니다.</p>'+
- '<div class="hint">👥 <b>3인:</b> 1~9 타일 · 12장씩<br>👥 <b>4인:</b> 1~13 타일 · 13장씩<br>👥 <b>5인:</b> 1~15 타일 · 12장씩</div>'+
+ '<div class="hint">👥 <b>3인:</b> 1~9 타일 · 12장씩<br>👥 <b>4인:</b> 1~13 타일 · 13장씩<br>👥 <b>5인:</b> 1~15 타일 · 12장씩<br>👥 <b>6인:</b> 1~15 타일 · 10장씩 (하우스룰)</div>'+
  '<ul><li>☁ 구름3을 가진 사람이 첫 선입니다. 구름3을 반드시 낼 필요는 없습니다.</li>'+
  '<li>1장 싱글, 2장 페어, 3장 트리플, 5장 메이드를 낼 수 있습니다. 4장만 제출할 수는 없습니다.</li>'+
  '<li>앞서 낸 패와 <b>같은 장수의 더 강한 족보</b>만 낼 수 있습니다.</li>'+
  '<li>5장 서열: 스트레이트 &lt; 플러시 &lt; 풀하우스 &lt; 포카드 &lt; 스트레이트 플러시.</li>'+
- '<li>특수 스트레이트: 3인 6·7·8·9·1 / 4인 10·11·12·13·1 / 5인 12·13·14·15·1. 전체 최강은 1·2·3·4·5, 그다음은 2·3·4·5·6입니다.</li>'+
+ '<li>특수 스트레이트: 3인 6·7·8·9·1 / 4인 10·11·12·13·1 / 5·6인 12·13·14·15·1. 전체 최강은 1·2·3·4·5, 그다음은 2·3·4·5·6입니다.</li>'+
  '<li>패스해도 이후 턴에 다시 낼 수 있습니다. <b>나를 제외한 모든 사람이 연속 패스</b>하면 마지막에 낸 사람이 다시 선을 잡습니다.</li>'+
  '<li>누군가 패를 모두 내면 즉시 라운드가 종료됩니다. 남아 있는 숫자 2의 개수에 따라 남은 패의 페널티가 2배씩 커집니다.</li>'+
  '<li>모든 플레이어가 상대와 패 차이만큼 칩을 정산합니다. 기본 5라운드로 진행합니다.</li></ul>'+
- '<p class="muted">렉시오의 일반 3~5인 규칙을 참고한 비공식 팬 제작 버전입니다.</p>';
+ '<p class="muted">원작 공식 인원은 3~5명입니다. 6인 모드는 타일 60개를 10개씩 나눠 갖는 비공식 하우스룰입니다.</p>';
 popup(msg);
 }
 async function request(url,body){
@@ -101,7 +101,7 @@ async function practice(){
 async function join(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/join',{name:document.getElementById('joinname').value,code:document.getElementById('joincode').value}))}catch(e){toast(e.message)}finally{pending=false}}
 function welcome(){
  return head()+'<section class="intro"><span class="pill">☁ ★ ☾ ☀</span><h1>친구와 한 판,<br>렉시오</h1><p>각자 휴대폰으로 비밀 타일을 받고,<br>정면에서 친구와 심리전을 펼쳐 보세요.</p></section>'+
- '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><label for="newsize">플레이 인원</label><select class="field" id="newsize"><option value="3" selected>3명 · 12장씩</option><option value="4">4명 · 13장씩</option><option value="5">5명 · 12장씩</option></select><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">연습하기를 누르면 빈자리를 봇으로 채워서 바로 시작해요. 친구 대전은 봇 없이도 가능합니다.</p></section>'+
+ '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><label for="newsize">플레이 인원</label><select class="field" id="newsize"><option value="3" selected>3명 · 12장씩</option><option value="4">4명 · 13장씩</option><option value="5">5명 · 12장씩</option><option value="6">6명 · 10장씩 (확장)</option></select><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">연습하기를 누르면 빈자리를 봇으로 채워서 바로 시작해요. 6인 모드는 비공식 확장 규칙이에요. 친구 대전은 봇 없이도 가능합니다.</p></section>'+
  '<section class="panel"><h2>친구 방에 참가</h2><form onsubmit="join(event)"><label for="joinname">내 닉네임</label><input class="field" id="joinname" maxlength="14" autocomplete="off" placeholder="이름 입력" required><label for="joincode">5자리 방 코드</label><input class="field" id="joincode" maxlength="5" autocomplete="off" placeholder="ABCDE" value="'+html(params.get('room')||'')+'" required><button class="alt full">참가</button></form></section>';
 }
 function lobby(){
