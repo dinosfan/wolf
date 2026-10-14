@@ -45,3 +45,9 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 .ranking-note h3{margin:3px 0 7px}
 .ranking-note p{margin:5px 0}
 @media(max-width:375px){.brand{font-size:16px}.brand small{font-size:10px}.header-actions .mini{padding:8px 7px;font-size:11px}.rank-tile{min-width:34px;height:43px}.rank-tile-symbol,.rank-tile-num{font-size:15px}}
+
+/* Six-player house-rule responsive seating */
+.players[data-size="6"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:580px){.players[data-size="6"]{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.players[data-size="6"] .person{min-width:0}
+.players[data-size="6"] .person h3{overflow-wrap:anywhere}
