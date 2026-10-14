@@ -45,7 +45,7 @@ function scheduleBot(r){
  },750);
 }
 function publicState(r,p){
- return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:12,maxNum:r.maxNum,
+ return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips,isBot:!!q.isBot})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,
@@ -54,7 +54,7 @@ function publicState(r,p){
 }
 function begin(r){
  const deck=shuffle(Array.from({length:r.maxNum*4},(_,i)=>i));
- const per=r.size===4?13:12;
+ const per=r.size===4?13:r.size===6?10:12;
  r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*per,(i+1)*per),r.maxNum);p.ready=false;});
  const p=r.players.find(x=>x.hand.includes((3-1)*4+0));
  r.turn=p.seat;r.leader=p.seat;r.trick=null;r.passes=0;r.round++;r.stage='playing';r.results=null;r.winner=null;
@@ -140,10 +140,10 @@ function data(req){
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://localhost');
-  if(url.pathname==='/health')return json(res,200,{ok:true,name:'Lexio 3-5 with bots'});
+  if(url.pathname==='/health')return json(res,200,{ok:true,name:'Lexio 3-6 with bots'});
   if(req.method==='POST'&&url.pathname==='/api/create'){
    const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=Number(b.size??4),practice=b.practice===true;
-   assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=5,'게임 인원은 3~5명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
+   assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=6,'게임 인원은 3~6명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
    const r={code:c,size,maxNum:size===3?9:size===4?13:15,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
    rooms.set(c,r);if(practice){fillBots(r);begin(r);}return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
