@@ -256,7 +256,7 @@ function toggle(id){if(!state||state.stage!=='playing'||state.turn!==state.seat)
 function result(){
  const isEnd=state.stage==='matchEnd';
  const winningFx=liveFx().some(e=>e.type==='win'&&e.seat===state.winner);
- const celebration=winningFx?'<div class="win-celebration" aria-hidden="true">'+Array.from({length:16},(_,i)=>'<span style="--i:'+i+'">✦</span>').join('')+'</div>':'';
+ const celebration=winningFx?'<div class="win-celebration" aria-hidden="true">'+Array.from({length:16},(_,i)=>'<span style="--offset:'+(i-8)*19+'px;--drop:'+(108+i*7)+'px;--delay:'+(i*38)+'ms">✦</span>').join('')+'</div>':'';
  const summary=state.results||[];
  const sorted=[...summary].sort((a,b)=>b.chips-a.chips);
  return head()+celebration+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
