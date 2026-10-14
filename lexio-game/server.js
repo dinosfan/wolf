@@ -15,6 +15,12 @@ function room(s){const r=rooms.get(String(s||'').toUpperCase());assert(r,'방을
 function auth(b){const r=room(b.code),p=r.players.find(p=>p.token===b.token);assert(p,'플레이어 인증이 만료되었습니다.');return [r,p];}
 function notify(r){for(const res of [...r.clients]){try{res.write('data: refresh\n\n')}catch{r.clients.delete(res)}}}
 function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();notify(r);scheduleBot(r);}
+const REACTIONS=['😂','🔥','😭','👏','😎','😱'];
+function emitFx(r,type,seat,details={}){
+ const event={id:++r.fxSeq,type,seat,ts:Date.now(),round:r.round,...details};
+ r.fxEvents.push(event);
+ if(r.fxEvents.length>24)r.fxEvents.splice(0,r.fxEvents.length-24);
+}
 function newBot(r){
  const numbers=new Set(r.players.filter(p=>p.isBot).map(p=>p.botNum));
  let botNum=1;while(numbers.has(botNum))botNum++;
@@ -48,7 +54,7 @@ function publicState(r,p){
  return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips,isBot:!!q.isBot})),
- hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,
+ hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,fxSeq:r.fxSeq,effects:r.fxEvents.slice(-16),
  trick:r.trick?{by:r.trick.by,ids:r.trick.ids,name:r.trick.ev.name}:null,
  history:r.history,results:r.results,winner:r.winner};
 }
@@ -59,7 +65,7 @@ function begin(r){
  const p=r.players.find(x=>x.hand.includes((3-1)*4+0));
  r.turn=p.seat;r.leader=p.seat;r.trick=null;r.passes=0;r.round++;r.stage='playing';r.results=null;r.winner=null;
  r.history=[r.players[r.turn].name+'님이 구름 3을 가져 선이 됐습니다.'];
- touch(r);
+ emitFx(r,'round',p.seat);touch(r);
 }
 function scoring(r,winner){
  const {effective,delta}=R.calculateScores(r.players.map(p=>p.hand));
@@ -67,7 +73,7 @@ function scoring(r,winner){
  r.results=r.players.map((p,i)=>({seat:p.seat,name:p.name,left:p.hand.length,twos:p.hand.filter(id=>R.tile(id).n===2).length,effective:effective[i],delta:delta[i],chips:p.chips}));
  r.winner=winner;
  r.stage=(r.round>=MAX_ROUNDS||r.players.some(p=>p.chips<=0))?'matchEnd':'roundEnd';
- touch(r,r.players[winner].name+'님이 패를 모두 내고 '+r.round+'라운드 승리!');
+ emitFx(r,'win',winner);touch(r,r.players[winner].name+'님이 패를 모두 내고 '+r.round+'라운드 승리!');
 }
 function action(b){
  const [r,p]=auth(b),host=()=>assert(p.token===r.hostToken,'방장만 할 수 있어요.');
@@ -102,6 +108,7 @@ function action(b){
   assert(r.stage==='playing'&&p.seat===r.turn,'내 차례에만 패스할 수 있어요.');
   assert(r.trick,'선 플레이어는 패스할 수 없어요.');
   r.passes++;
+  emitFx(r,'pass',p.seat);
   if(r.passes>=r.size-1){
    const last=r.trick.by;r.turn=last;r.leader=last;r.trick=null;r.passes=0;
    touch(r,p.name+'님 패스 · 모두 패스하여 '+r.players[last].name+'님이 새로 선이 됐습니다.');
@@ -119,8 +126,17 @@ function action(b){
   p.hand=p.hand.filter(id=>!ids.includes(id));
   r.trick={by:p.seat,ids:R.sortTiles(ids,r.maxNum),ev};r.passes=0;r.leader=p.seat;
   r.turn=next(p.seat);
+  emitFx(r,'play',p.seat,{ids:[...r.trick.ids],name:ev.name});
   touch(r,p.name+'님이 '+ev.name+' '+ids.length+'장을 냈습니다.');
   if(!p.hand.length)scoring(r,p.seat);
+ }else if(b.type==='react'){
+  assert((r.stage==='playing'||r.stage==='roundEnd'||r.stage==='matchEnd')&&!p.isBot,'게임 중인 플레이어만 반응할 수 있어요.');
+  const emoji=String(b.emoji||'');
+  assert(REACTIONS.includes(emoji),'지원하지 않는 이모지예요.');
+  const now=Date.now();
+  assert(!p.lastReactionAt||now-p.lastReactionAt>=1100,'이모지는 잠깐 간격을 두고 보내주세요.');
+  p.lastReactionAt=now;
+  emitFx(r,'emoji',p.seat,{emoji});touch(r);
  }else if(b.type==='leave'){
   assert(r.stage==='lobby','진행 중에는 나갈 수 없어요.');
   r.players=r.players.filter(q=>q!==p);r.players.forEach((q,i)=>q.seat=i);const people=r.players.filter(x=>!x.isBot);if(r.hostToken===p.token&&people.length)r.hostToken=people[0].token;
@@ -145,7 +161,7 @@ const server=http.createServer(async(req,res)=>{
    const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=Number(b.size??4),practice=b.practice===true;
    assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=6,'게임 인원은 3~6명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
-   const r={code:c,size,maxNum:size===3?9:size===4?13:15,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],updated:Date.now()};
+   const r={code:c,size,maxNum:size===3?9:size===4?13:15,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],fxSeq:0,fxEvents:[],updated:Date.now()};
    rooms.set(c,r);if(practice){fillBots(r);begin(r);}return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
