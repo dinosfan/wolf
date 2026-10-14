@@ -208,12 +208,28 @@ function lobby(){
  '<button class="danger full" onclick="leaveRoom()">방 나가기</button></section>';
 }
 function playersList(){
- return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>'<div class="person'+(p.seat===state.turn&&state.stage==='playing'?' active':'')+'"><span class="count">'+p.count+'장</span><h3>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(p.isBot?' <span class="bot-badge">BOT</span>':'')+'</h3><p>💰 <span class="bal">'+p.chips+'</span>점'+(p.seat===state.turn&&state.stage==='playing'?' · <b>현재 차례</b>':'')+'</p></div>').join('')+'</div>';
+ return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>{
+  const fx=fxForSeat(p.seat);
+  const mark=fx?(fx.type==='emoji'?'<span class="fx-bubble fx-emoji" aria-label="이모지 반응">'+html(fx.emoji)+'</span>':
+   fx.type==='pass'?'<span class="fx-bubble fx-pass">PASS</span>':
+   '<span class="fx-bubble fx-play">냈다!</span>'):'';
+  return '<div class="person'+(p.seat===state.turn&&state.stage==='playing'?' active':'')+(fx?' fx-active':'')+'">'+mark+
+   '<span class="count">'+p.count+'장</span><h3>'+html(p.name)+(p.seat===state.seat?' · 나':'')+
+   (p.isBot?' <span class="bot-badge">BOT</span>':'')+'</h3>'+
+   '<p>💰 <span class="bal">'+p.chips+'</span>점'+(p.seat===state.turn&&state.stage==='playing'?' · <b>현재 차례</b>':'')+'</p></div>';
+ }).join('')+'</div>';
 }
 function center(){
  const tr=state.trick;
- return '<section class="tabletop"><div class="status">'+(state.stage==='playing'?'🎲 <strong>'+html(state.players[state.turn].name)+'</strong>의 차례'+(state.players[state.turn].isBot?' <span class="bot-thinking">생각 중…</span>':''):'라운드 종료')+'</div>'+
- (tr?'<h2>현재 족보 · '+html(tr.name)+' ('+tr.ids.length+'장)</h2><div class="tiles">'+tr.ids.map(id=>tileView(id,{short:true})).join('')+'</div><small>'+html(state.players[tr.by].name)+'님이 낸 타일 · 연속 패스 '+state.passes+'/'+(state.size-1)+'</small>':
+ const incoming=tr&&liveFx().some(e=>e.type==='play'&&e.seat===tr.by&&
+  (e.ids||[]).length===tr.ids.length&&[...e.ids].sort((a,b)=>a-b).join(',')===[...tr.ids].sort((a,b)=>a-b).join(','));
+ const mine=state.stage==='playing'&&state.turn===state.seat;
+ return '<section class="tabletop'+(mine?' my-turn':'')+'"><div class="status">'+
+ (state.stage==='playing'?(mine?'<strong>✨ 내 차례!</strong>':'🎲 <strong>'+html(state.players[state.turn].name)+'</strong>의 차례')+
+ (state.players[state.turn].isBot?' <span class="bot-thinking">생각 중…</span>':''):'라운드 종료')+'</div>'+
+ (tr?'<h2>현재 족보 · '+html(tr.name)+' ('+tr.ids.length+'장)</h2><div class="tiles'+(incoming?' fx-tiles':'')+'">'+
+ tr.ids.map(id=>tileView(id,{short:true})).join('')+'</div><small>'+html(state.players[tr.by].name)+
+ '님이 낸 타일 · 연속 패스 '+state.passes+'/'+(state.size-1)+'</small>':
  '<h2>🟡 새 선 플레이어가 자유롭게 냅니다</h2><div class="tiles"><span class="pill">싱글 · 페어 · 트리플 · 메이드</span></div>')+'</section>';
 }
 function hand(){
@@ -239,16 +255,18 @@ function toggle(id){if(!state||state.stage!=='playing'||state.turn!==state.seat)
 }
 function result(){
  const isEnd=state.stage==='matchEnd';
+ const winningFx=liveFx().some(e=>e.type==='win'&&e.seat===state.winner);
+ const celebration=winningFx?'<div class="win-celebration" aria-hidden="true">'+Array.from({length:16},(_,i)=>'<span style="--i:'+i+'">✦</span>').join('')+'</div>':'';
  const summary=state.results||[];
  const sorted=[...summary].sort((a,b)=>b.chips-a.chips);
- return head()+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
+ return head()+celebration+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
  '<div class="summary">'+summary.map(p=>'<div class="sum"><b>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(state.players[p.seat].isBot?' 🤖':'')+'</b><p class="muted">잔여 '+p.left+'장'+(p.twos?' · 2 ×'+p.twos:'')+'<br>환산 '+p.effective+'장</p><p class="'+(p.delta<0?'neg':'pos')+'">'+(p.delta>0?'+':'')+p.delta+'점</p><p><strong>누적 '+p.chips+'점</strong></p></div>').join('')+'</div>'+
  (isEnd?'<h2 style="margin-top:18px">🏆 최종 순위</h2><ol class="recent">'+sorted.map(p=>'<li>'+html(p.name)+' · '+p.chips+'점</li>').join('')+'</ol><p class="success">최종 우승: '+html(sorted[0]?.name)+'님!</p>'+
  (state.isHost?'<button class="full" onclick="invoke(\'newMatch\')">새 경기 시작</button>':'<p class="muted">방장이 다음 경기를 준비할 수 있어요.</p>'):
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
- '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. 5라운드 또는 파산 시 경기가 끝납니다.</p></details>';
+ '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. 5라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
-function render(){el.innerHTML='<div class="wrap">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+hand()+controls()+historyList():result())+'</div>'}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
 function leaveRoom(){if(confirm('정말 방을 나갈까요?'))invoke('leave')}
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
