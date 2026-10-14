@@ -51,3 +51,45 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 @media(min-width:580px){.players[data-size="6"]{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .players[data-size="6"] .person{min-width:0}
 .players[data-size="6"] .person h3{overflow-wrap:anywhere}
+
+/* Game feel v2: local group-play effects, quick emojis and sound controls */
+.person{position:relative;isolation:isolate}
+.person.fx-active{border-color:#8bc8d3}
+.fx-bubble{position:absolute;z-index:2;top:-12px;right:5px;pointer-events:none;border-radius:9px;font-weight:950;
+ padding:4px 8px;box-shadow:0 7px 16px #0008;transform-origin:center;animation:lexio-bubble 1.4s both;white-space:nowrap}
+.fx-emoji{font-size:27px;background:#2a3b50df;border:1px solid #7ba8c3}
+.fx-pass{color:#ffe1da;font-size:12px;background:#7d3c4b;border:1px solid #db8495}
+.fx-play{color:#2c2110;background:#f1cf83;border:1px solid #fff1c2;font-size:11px}
+@keyframes lexio-bubble{0%{opacity:0;transform:translateY(16px) scale(.55) rotate(-9deg)}
+ 18%,72%{opacity:1;transform:translateY(-6px) scale(1.13) rotate(0)}
+ 100%{opacity:0;transform:translateY(-27px) scale(.96)}}
+.tabletop.my-turn{border-color:#f2c76c;box-shadow:0 0 0 2px #ad8e4b55,0 0 22px #eac26730}
+.its-my-turn .hand-title .pill.mine{box-shadow:0 0 0 2px #caa34b66;background:#524b31;color:#ffe7ac}
+.fx-tiles .tile{animation:lexio-play-in .42s cubic-bezier(.14,.9,.26,1.22) both}
+.fx-tiles .tile:nth-child(2){animation-delay:55ms}.fx-tiles .tile:nth-child(3){animation-delay:105ms}
+.fx-tiles .tile:nth-child(4){animation-delay:155ms}.fx-tiles .tile:nth-child(5){animation-delay:205ms}
+@keyframes lexio-play-in{0%{opacity:.2;transform:translateY(-31px) rotate(-8deg) scale(.75)}
+ 65%{opacity:1;transform:translateY(4px) rotate(2deg) scale(1.08)}
+ 100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
+.reaction-bar{background:#1a2b40;border:1px solid #415970;border-radius:14px;padding:11px 10px;margin:10px 0}
+.reaction-top{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:9px}
+.reaction-top>span{color:#c7d9e8;font-weight:750;font-size:12px}
+.effect-settings{display:flex;gap:5px}
+.effect-settings .mini{font-size:10px;padding:7px 6px;line-height:1.15;white-space:nowrap}
+.emoji-buttons{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+.emoji-quick{display:grid;place-items:center;min-width:0;min-height:43px;background:#2d425a;color:#fff;border:1px solid #4b6982;
+ font-size:23px;line-height:1;padding:6px 2px;border-radius:10px}
+.emoji-quick:active{background:#4a6381;transform:scale(.91)}
+.win-celebration{position:relative;height:0;pointer-events:none;z-index:10}
+.win-celebration span{position:absolute;left:calc(50% + (var(--i) - 8)*21px);top:0;
+ font-size:23px;color:#f5d484;animation:lexio-win 2.7s ease-out both;
+ animation-delay:calc(var(--i)*36ms);text-shadow:0 0 7px #ffbe52}
+.win-celebration span:nth-child(3n){color:#7fd5f8}
+.win-celebration span:nth-child(4n){color:#a9eec5}
+@keyframes lexio-win{0%{opacity:0;transform:translateY(0) rotate(0) scale(.4)}
+ 15%{opacity:1}85%{opacity:1}
+ 100%{opacity:0;transform:translateY(calc(120px + var(--i)*7px)) rotate(420deg) scale(1.15)}}
+@media(max-width:360px){.reaction-bar{padding:9px 7px}.emoji-buttons{gap:4px}.emoji-quick{font-size:21px;min-height:39px}
+ .reaction-top>span{font-size:11px}.effect-settings .mini{font-size:9px;padding:6px 4px}}
+@media(prefers-reduced-motion:reduce){.fx-bubble,.fx-tiles .tile,.win-celebration span{animation:none}
+ .fx-bubble{transform:none;opacity:1}.win-celebration{display:none}}
