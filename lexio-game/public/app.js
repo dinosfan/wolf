@@ -3,6 +3,11 @@ const el=document.getElementById('app'),overlay=document.getElementById('overlay
 const K='lexio-session-four-v1',params=new URLSearchParams(location.search);
 const SUITS=['구름','별','달','해'],SYMS=['☁','★','☾','☀'];
 let session=null,state=null,events=null,selected=new Set(),pending=false,toastTimer=null;
+let fxRoom=null,lastFxSeq=null,visualFx=[],fxTimer=null,reactionBusy=false,lastReactionSent=0,soundContext=null;
+const SOUND_PREF='lexio-sound-v2',VIBRATE_PREF='lexio-vibrate-v2';
+let soundEnabled=false,vibrateEnabled=true;
+try{soundEnabled=localStorage.getItem(SOUND_PREF)==='on';vibrateEnabled=localStorage.getItem(VIBRATE_PREF)!=='off'}catch{}
+const REACTION_EMOJI=['😂','🔥','😭','👏','😎','😱'];
 try{session=JSON.parse(localStorage.getItem(K)||'null')}catch{localStorage.removeItem(K)}
 function html(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function tileInfo(id){return {id,n:Math.floor(id/4)+1,s:id%4}}
@@ -14,6 +19,93 @@ function tileView(id,opts={}){
  '<span class="figure">'+SYMS[t.s]+'</span><span class="digit">'+t.n+'</span><span class="letter">'+SUITS[t.s]+'</span></button>';
 }
 function toast(msg){toastEl.textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.textContent='',3300)}
+
+function liveFx(){
+ const now=Date.now();
+ return visualFx.filter(e=>e.until>now);
+}
+function fxForSeat(seat){
+ return liveFx().filter(e=>e.seat===seat&&['play','pass','emoji'].includes(e.type)).slice(-1)[0]||null;
+}
+function cleanupEffects(){
+ if(fxTimer!==null){clearTimeout(fxTimer);fxTimer=null}
+ visualFx=liveFx();
+ if(!visualFx.length)return;
+ const next=Math.min(...visualFx.map(e=>e.until))-Date.now();
+ fxTimer=setTimeout(()=>{fxTimer=null;visualFx=liveFx();render();cleanupEffects()},Math.max(30,next+25));
+}
+function playSfx(type){
+ if(!soundEnabled||typeof window==='undefined'||document.hidden)return;
+ try{
+  const Audio=window.AudioContext||window.webkitAudioContext;
+  if(!Audio)return;
+  if(!soundContext)soundContext=new Audio();
+  if(soundContext.state==='suspended')soundContext.resume().catch(()=>{});
+  const now=soundContext.currentTime;
+  const notes=type==='win'?[630,790,980]:type==='turn'?[740,990]:[type==='pass'?270:540];
+  notes.forEach((freq,i)=>{
+   const osc=soundContext.createOscillator(),gain=soundContext.createGain(),start=now+i*.075;
+   osc.type='sine';osc.frequency.value=freq;
+   gain.gain.setValueAtTime(.0001,start);
+   gain.gain.exponentialRampToValueAtTime(.065,start+.015);
+   gain.gain.exponentialRampToValueAtTime(.0001,start+.16);
+   osc.connect(gain);gain.connect(soundContext.destination);
+   osc.start(start);osc.stop(start+.17);
+  });
+ }catch{}
+}
+function vibrateTurn(){
+ if(!vibrateEnabled||document.hidden||typeof navigator==='undefined'||typeof navigator.vibrate!=='function')return;
+ try{navigator.vibrate([85,40,100])}catch{}
+}
+function toggleSound(){
+ soundEnabled=!soundEnabled;
+ try{localStorage.setItem(SOUND_PREF,soundEnabled?'on':'off')}catch{}
+ if(soundEnabled)playSfx('turn');
+ render();
+}
+function toggleVibration(){
+ vibrateEnabled=!vibrateEnabled;
+ try{localStorage.setItem(VIBRATE_PREF,vibrateEnabled?'on':'off')}catch{}
+ if(vibrateEnabled)vibrateTurn();
+ render();
+}
+function applyState(next){
+ const previous=state,newRoom=fxRoom!==next.code;
+ if(newRoom){
+  fxRoom=next.code;lastFxSeq=next.fxSeq??0;visualFx=[];
+ }else{
+  const incoming=(next.effects||[]).filter(e=>Number.isInteger(e.id)&&e.id>(lastFxSeq??0)&&Date.now()-e.ts<4500).slice(-12);
+  lastFxSeq=Math.max(lastFxSeq??0,next.fxSeq??0);
+  for(const event of incoming){
+   visualFx.push({...event,until:Date.now()+(event.type==='win'?3400:event.type==='emoji'?2700:1800)});
+   if(['play','pass','win'].includes(event.type))playSfx(event.type);
+  }
+  visualFx=liveFx().slice(-16);
+ }
+ state=next;
+ const myTurn=next.stage==='playing'&&next.turn===next.seat;
+ const turned=myTurn&&previous&&previous.code===next.code&&(
+   previous.stage!=='playing'||previous.round!==next.round||previous.turn!==next.turn
+ );
+ if(turned){vibrateTurn();playSfx('turn')}
+ render();cleanupEffects();
+}
+async function sendReaction(emoji){
+ if(!session||!state||!['playing','roundEnd','matchEnd'].includes(state.stage)||!REACTION_EMOJI.includes(emoji)||reactionBusy||pending)return;
+ if(Date.now()-lastReactionSent<1150)return;
+ reactionBusy=true;lastReactionSent=Date.now();
+ try{applyState(await request('/api/action',{...session,type:'react',emoji}))}
+ catch(e){toast(e.message)}
+ finally{reactionBusy=false}
+}
+function reactionBar(){
+ const buttons=REACTION_EMOJI.map(e=>'<button type="button" class="emoji-quick" aria-label="'+e+' 반응 보내기" onclick="sendReaction(\''+e+'\')">'+e+'</button>').join('');
+ return '<section class="reaction-bar" aria-label="빠른 이모지 반응"><div class="reaction-top"><span>친구에게 반응 보내기</span><div class="effect-settings">'+
+ '<button type="button" class="mini alt" onclick="toggleSound()" aria-label="효과음 '+(soundEnabled?'끄기':'켜기')+'">'+(soundEnabled?'🔊 소리 ON':'🔇 소리 OFF')+'</button>'+
+ '<button type="button" class="mini alt" onclick="toggleVibration()" aria-label="진동 '+(vibrateEnabled?'끄기':'켜기')+'">'+(vibrateEnabled?'📳 진동 ON':'📴 진동 OFF')+'</button></div></div>'+
+ '<div class="emoji-buttons">'+buttons+'</div></section>';
+}
 function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~6인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button></div></header>'}
 function popup(markup){overlay.innerHTML='<div class="dialog">'+markup+'<button class="alt full" onclick="closeOverlay()">닫기</button></div>';overlay.hidden=false}
 function closeOverlay(){overlay.hidden=true;overlay.innerHTML=''}
@@ -68,24 +160,23 @@ async function request(url,body){
  const resp=await fetch(url,options),data=await resp.json();
  if(!resp.ok)throw Error(data.error||'서버 오류');return data;
 }
-function store(payload){session={code:payload.code,token:payload.token};localStorage.setItem(K,JSON.stringify(session));history.replaceState(null,'','/?room='+payload.code);state=payload.state;connect();render()}
+function store(payload){session={code:payload.code,token:payload.token};localStorage.setItem(K,JSON.stringify(session));history.replaceState(null,'','/?room='+payload.code);applyState(payload.state);connect()}
 function connect(){if(events)events.close();if(!session)return;events=new EventSource('/api/events?code='+encodeURIComponent(session.code)+'&token='+encodeURIComponent(session.token));events.onmessage=refresh}
 async function refresh(){
  if(!session||pending)return;
  try{
   const s=await request('/api/state?code='+encodeURIComponent(session.code)+'&token='+encodeURIComponent(session.token));
-  state=s;selected=new Set([...selected].filter(id=>s.hand.includes(id)));render();
+  selected=new Set([...selected].filter(id=>s.hand.includes(id)));applyState(s);
  }catch(e){
-  if(/인증|방을 찾지/.test(e.message)){localStorage.removeItem(K);session=null;state=null;selected.clear();events?.close();history.replaceState(null,'','/');toast('방이 초기화되어 새 방을 만들어야 해요.');render();}
+  if(/인증|방을 찾지/.test(e.message)){localStorage.removeItem(K);session=null;state=null;fxRoom=null;lastFxSeq=null;visualFx=[];selected.clear();events?.close();history.replaceState(null,'','/');toast('방이 초기화되어 새 방을 만들어야 해요.');render();}
  }
 }
 async function invoke(type,extras={}){
  if(pending||!session)return;pending=true;
  try{
   const ret=await request('/api/action',{...session,type,...extras});
-  if(ret.left){localStorage.removeItem(K);session=null;state=null;selected.clear();events?.close();history.replaceState(null,'','/');}
-  else{state=ret;selected.clear()}
-  render();
+  if(ret.left){localStorage.removeItem(K);session=null;state=null;fxRoom=null;visualFx=[];lastFxSeq=null;selected.clear();events?.close();history.replaceState(null,'','/');render();}
+  else{selected.clear();applyState(ret)}
  }catch(e){toast(e.message)}finally{pending=false}
 }
 async function create(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/create',{name:document.getElementById('newname').value,size:Number(document.getElementById('newsize').value)}))}catch(e){toast(e.message)}finally{pending=false}}
