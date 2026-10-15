@@ -25,4 +25,21 @@ function drawMonster(seed){
  if(!Number.isInteger(seed)||seed<1||seed>COUNT)throw Error('올바르지 않은 몬스터 카드 번호입니다.');
  return cached[seed-1];
 }
-module.exports={COUNT,drawMonster,prepareMonsterDeck};
+
+const EASY_IDS=Object.freeze([2,3,4,6,7,8,9,12,16,18,19,21,24,25,27,30,32,34,37,40]);
+const HARD_IDS=Object.freeze([1,5,11,14,15,20,23,26,29,33,35,38,39,41,45,50]);
+function difficultyOf(seed){
+ if(!Number.isInteger(seed)||seed<1||seed>COUNT)throw Error('올바르지 않은 카드 번호입니다.');
+ return EASY_IDS.includes(seed)?'easy':HARD_IDS.includes(seed)?'hard':'medium';
+}
+const FILTERS=['all','beginner','standard','challenge'];
+function filteredIds(filter='all'){
+ if(!FILTERS.includes(filter))throw Error('난이도 필터가 올바르지 않아.');
+ return Array.from({length:COUNT},(_,i)=>i+1).filter(n=>{
+  const d=difficultyOf(n);
+  return filter==='all'||filter==='beginner'&&d==='easy'||filter==='standard'&&d!=='hard'||filter==='challenge'&&d==='hard';
+ });
+}
+function cardCatalog(){return Array.from({length:COUNT},(_,i)=>({id:i+1,difficulty:difficultyOf(i+1)}))}
+
+module.exports={COUNT,drawMonster,prepareMonsterDeck,difficultyOf,filteredIds,cardCatalog,FILTERS};
