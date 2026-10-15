@@ -1,0 +1,11 @@
+{
+  "name": "monster-witness-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
