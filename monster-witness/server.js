@@ -32,7 +32,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method!=='GET')return answer(res,405,{error:'요청 방식 오류'});
   const name=u.pathname==='/'?'index.html':u.pathname.slice(1);
-  if(!['index.html','app.js','style.css'].includes(name))return answer(res,404,{error:'없는 페이지야.'});
+  if(!['index.html','core.js','ui.js','style.css'].includes(name))return answer(res,404,{error:'없는 페이지야.'});
   fs.readFile(path.join(__dirname,'public',name),(err,data)=>{
    if(err)return answer(res,404,{error:'파일을 찾을 수 없어.'});
    res.writeHead(200,{'Content-Type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','Cache-Control':'no-cache'});
