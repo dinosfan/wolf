@@ -74,3 +74,22 @@ footer{text-align:center;font-size:10px;color:#7798a8;padding:26px 3px}
 @media(min-width:570px){.seats{grid-template-columns:repeat(4,minmax(0,1fr))}.gallery{grid-template-columns:repeat(3,minmax(0,1fr))}.score-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:365px){.wrap{padding:11px 8px 70px}.tools{gap:7px}.colorpick{width:33px;height:33px}.chip{font-size:10px;padding:8px}.chip.wide{min-width:80px}.score-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* v1.2: built-in deck collection and filters */
+.deck-settings{background:linear-gradient(135deg,#183f54,#123548);border-color:#77b6a4}
+.deck-settings h2{color:#d6ffeb}
+.deck-settings p{font-size:13px;line-height:1.65;margin:8px 0}
+.deck-settings label{display:block;font-size:12px;font-weight:800;color:#d9edf2;margin:10px 0 6px}
+.deck-settings select{width:100%;padding:12px;border-radius:11px;background:#eaf4f6;color:#15354a;border:2px solid #78b4c6;font-size:16px}
+.deck-settings button{margin-top:12px}
+.card-collection{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-height:60vh;overflow:auto;padding:8px 2px 15px}
+.collection-item{overflow:hidden;border-radius:11px;border:1px solid #80a6b4;background:#f5f3eb;color:#223448;min-width:0}
+.collection-item img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:#f3eddf}
+.collection-item>div{display:flex;justify-content:space-between;align-items:center;gap:3px;padding:5px}
+.collection-item b{font-size:12px;font-variant-numeric:tabular-nums}
+.difficulty{font-size:10px;font-weight:800;border-radius:5px;padding:4px 5px;background:#e8ecf0;color:#536475}
+.difficulty.d-easy{background:#d7f1dc;color:#226c42}.difficulty.d-medium{background:#fff1c6;color:#8f6a1c}.difficulty.d-hard{background:#ffe0e1;color:#963f4a}
+.played-cards{display:flex;flex-wrap:wrap;gap:6px}
+.played-cards span{font-size:11px;font-weight:800;color:#d8f0e3;border:1px solid #55827d;background:#1e504d;border-radius:8px;padding:7px}
+@media(min-width:540px){.card-collection{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:355px){.card-collection{grid-template-columns:repeat(2,minmax(0,1fr))}}
