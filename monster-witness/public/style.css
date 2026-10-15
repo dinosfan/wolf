@@ -93,3 +93,16 @@ footer{text-align:center;font-size:10px;color:#7798a8;padding:26px 3px}
 .played-cards span{font-size:11px;font-weight:800;color:#d8f0e3;border:1px solid #55827d;background:#1e504d;border-radius:8px;padding:7px}
 @media(min-width:540px){.card-collection{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(max-width:355px){.card-collection{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* v1.3 solo practice bots */
+.practice-btn{background:linear-gradient(135deg,#a4f2ca,#60d5c4)!important;color:#123c38!important;box-shadow:0 3px #318d85;font-size:15px;margin-top:13px!important}
+.bot-controls{background:linear-gradient(140deg,#174c53,#183448);border-color:#6ab9a8}
+.bot-controls h2{color:#c2f9e9}
+.bot-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bot-buttons button{min-width:0;min-height:51px;font-size:12px;padding:8px}
+.seat .mini{margin-top:3px;font-size:10px;padding:6px}
+.bot-hint{background:linear-gradient(145deg,#254f65,#23565a);border-color:#a8d6bf;box-shadow:inset 0 0 0 1px #ffffff24}
+.bot-hint h2{color:#fff0b8;margin-bottom:8px}
+.bot-hint p{font-size:16px;font-weight:720;line-height:1.72;color:#f0fffa;margin:0 0 8px}
+.bot-hint small{color:#c2e4d9}
+@media(max-width:370px){.bot-buttons{grid-template-columns:1fr}}
