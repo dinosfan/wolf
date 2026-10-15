@@ -28,7 +28,7 @@ function state(r,p){
   revealed:r.opened.map(x=>({owner:x.owner,by:x.by,type:x.type,round:x.round,id:x.id})),
   lastReveal:r.lastReveal,winner:r.winner,
   players:r.players.map(x=>({seat:x.seat,name:x.name,bot:x.bot,ready:x.ready,remaining:x.cards.length,mark:x.mark,
-   role:finish?x.role:undefined,lost:x.lost})),
+   ...(finish?{role:x.role}:{}),lost:x.lost})),
   myCards:recount(p.cards),myBacks:p.cards.length,
   history:r.history.slice(-18),results:finish?{winner:r.winner,treasures:r.opened.filter(x=>x.type==='treasure').length,
    specialThreePlayerLoss:r.size===3&&r.winner==='skeleton'&&!r.players.some(x=>x.role==='skeleton')}:null
