@@ -129,6 +129,58 @@ function render(){
  if(state?.phase==='draw'&&state.witness!==state.seat){attachPad();renderTools()}
  countdown();
 }
+
+const DIFFICULTY_NAMES={all:'🌈 전체 50장',beginner:'🌱 쉬움 20장',standard:'🎨 쉬움·보통 34장',challenge:'🔥 어려움 16장'};
+const D_NAME={easy:'쉬움',medium:'보통',hard:'어려움'};
+async function openCatalog(){
+ if(state&&state.phase!=='lobby'&&state.stage!=='finished'){
+  toast('게임 진행 중에는 도감을 열 수 없어. 다음 몬스터가 미리 보일 수 있거든!');return;
+ }
+ if(!confirm('⚠️ 스포일러 주의! 몬스터 카드 50장을 모두 볼 수 있어. 계속할까?'))return;
+ try{
+  const {cards,count}=await request('/api/catalog');
+  modal('<h2>👾 몬스터 도감 · '+count+'장</h2>'+
+   '<p class="muted">오리지널 몬스터 카드 전체와 난이도야. 플레이 전에는 스포일러가 될 수 있어!</p>'+
+   '<div class="card-collection">'+cards.map(c=>'<div class="collection-item">'+
+    '<img loading="lazy" decoding="async" src="/api/card/'+c.id+'.webp" alt="몬스터 카드 '+c.id+'">'+
+    '<div><b>#'+String(c.id).padStart(2,'0')+'</b><span class="difficulty d-'+c.difficulty+'">'+D_NAME[c.difficulty]+'</span></div></div>').join('')+
+   '</div>');
+ }catch(e){toast('도감 로딩 실패: '+e.message)}
+}
+function deckSettings(){
+ const filter=state.cardFilter||'all',count=state.activeCardCount||50;
+ const option=state.isHost?'<label for="deckDifficulty">난이도 선택</label>'+
+  '<select id="deckDifficulty" onchange="act(\'setDifficulty\',{filter:this.value})">'+
+  Object.entries(DIFFICULTY_NAMES).map(([id,label])=>'<option value="'+id+'"'+(filter===id?' selected':'')+'>'+label+'</option>').join('')+'</select>':'';
+ return '<section class="panel deck-settings"><h2>👾 기본 몬스터 카드</h2>'+
+ '<p>✅ <b>50장 내장 완료!</b> 사진 업로드 없이 바로 게임할 수 있어.</p>'+
+ '<p class="muted">현재 모드: '+esc(DIFFICULTY_NAMES[filter])+' · '+count+'장 후보 · 중복 출제 방지</p>'+
+ option+
+ '<button type="button" class="alt full" onclick="openCatalog()">🗂 몬스터 도감 · 카드 미리보기 (스포일러)</button>'+
+ '</section>';
+}
+const beforeLobby=lobby;
+lobby=function(){
+ let html=beforeLobby();
+ const target='<section class="panel"><button class="primary full"';
+ if(html.includes(target))html=html.replace(target,deckSettings()+target);
+ return html;
+};
+const beforeHome=home;
+home=function(){
+ return beforeHome().replace('</form></section>', '</form><button type="button" class="alt full" onclick="openCatalog()">🗂 50장 몬스터 도감 보기 (스포일러)</button></section>');
+};
+const beforeResult=result;
+result=function(){
+ let html=beforeResult();
+ const seen=state.usedCardIds||[];
+ const detail='<section class="panel"><h2>📋 이번 판에 나온 몬스터</h2>'+
+ (state.currentCard?'<p class="muted">이번 몬스터: #'+String(state.currentCard.id).padStart(2,'0')+' · '+D_NAME[state.currentCard.difficulty]+'</p>':'')+
+ '<div class="played-cards">'+seen.map(id=>'<span>#'+String(id).padStart(2,'0')+'</span>').join('')+'</div></section>'+
+ (state.stage==='finished'?'<button type="button" class="alt full" onclick="openCatalog()">🗂 몬스터 도감 열기</button>':'');
+ return html.replace('<details class="panel">',detail+'<details class="panel">');
+};
+
 async function boot(){if(session){await refresh();if(session)connect()}else render()}
 boot();
 setInterval(()=>{countdown();if(session&&!document.hidden&&(!events||events.readyState===2))refresh()},800);
