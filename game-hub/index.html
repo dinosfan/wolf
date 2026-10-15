@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffe9b0">
+<meta name="description" content="친구들이랑 만들고 노는 온라인 게임들! 렉시오, 늑대인간, 크라켄, 그림 게임까지 모두 여기서 골라보세요.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="와글와글 게임랜드 🎮">
+<meta property="og:description" content="우리끼리 만든 온라인 게임 8개를 한곳에! 골라서 친구들과 놀자.">
+<title>와글와글 게임랜드 🎮 · 우리끼리 만든 게임 모음</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/style.css?v=1.0">
+<script src="/app.js?v=1.0" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#game-catalog">게임 목록 바로가기</a>
+<div class="page-shell">
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="와글와글 게임랜드 홈">
+      <span class="brand-mark" aria-hidden="true"><span>★</span></span>
+      <span class="brand-copy"><strong>와글와글 <em>게임랜드</em></strong><small>우리들만의 온라인 놀이터</small></span>
+    </a>
+    <div class="header-actions">
+      <span class="live-pill"><i></i> GAME ON!</span>
+      <button type="button" class="header-btn" id="shareButton" aria-label="게임랜드 링크 공유"><span aria-hidden="true">↗</span><span class="desktop-only">공유하기</span></button>
+      <button type="button" class="header-btn" id="installButton" aria-label="휴대폰 홈 화면에 추가하는 방법">＋ <span class="desktop-only">홈 화면 추가</span></button>
+    </div>
+  </header>
+
+  <div class="marquee" aria-label="우리들의 게임랜드, 오늘은 뭐하고 놀까?">
+    <div class="marquee-inner" aria-hidden="true"><span>WELCOME TO OUR GAME LAND</span><b>✿</b><span>8 GAMES TO PLAY</span><b>✦</b><span>PLAY WITH FRIENDS</span><b>✿</b><span>오늘은 뭐하고 놀까?</span><b>✦</b></div>
+  </div>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="hero-sprinkles" aria-hidden="true"><span>✧</span><span>✿</span><span>+</span><span>✦</span><span>●</span></div>
+      <div class="hero-content">
+        <span class="eyebrow"><span class="eyebrow-star">★</span> 친구들이랑 놀 준비 됐어?</span>
+        <h1 id="hero-heading">오늘은<br><span class="title-em">뭐 하고 놀까?</span><span class="title-spark" aria-hidden="true">✷</span></h1>
+        <p>우리가 만든 게임 전부 여기 모았다!<br>인원에 맞춰 게임 고르고, 친구들 불러서 바로 시작 🎈</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#game-catalog">게임 구경하기 <span>→</span></a>
+          <button type="button" class="button button-white" id="randomButton">🎲 랜덤 추천</button>
+        </div>
+        <div class="hero-metrics">
+          <span><b id="metricCount">8</b>개의 게임</span><i>·</i><span>📱 모바일 OK</span><i>·</i><span>👫 친구랑 함께</span>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="hero-star star-one">✴</div><div class="hero-star star-two">✳</div>
+        <div class="game-console">
+          <div class="console-screen">
+            <div class="screen-sun"></div><div class="pixel-cloud cloud-a"></div><div class="pixel-cloud cloud-b"></div>
+            <div class="screen-hills hill-back"></div><div class="screen-hills hill-front"></div>
+            <div class="console-character"><span>◕</span><span>ᴗ</span><span>◕</span></div>
+            <div class="screen-caption">LET'S PLAY!</div>
+          </div>
+          <div class="console-bottom">
+            <div class="d-pad"><i></i><i></i></div>
+            <div class="action-bubbles"><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="floating-sticker sticker-blue">PLAY!</div>
+        <div class="floating-sticker sticker-pink">♥</div>
+      </div>
+    </section>
+
+    <section class="quickline" aria-label="게임 종류 안내">
+      <div class="quick-cell"><span class="quick-icon">🎭</span><div><strong>서로 속여라!</strong><small>추리 & 심리전</small></div></div>
+      <div class="quick-cell"><span class="quick-icon">🧠</span><div><strong>머리 굴려라!</strong><small>전략 & 보드게임</small></div></div>
+      <div class="quick-cell"><span class="quick-icon">🎨</span><div><strong>마음껏 그려라!</strong><small>그림 & 파티게임</small></div></div>
+    </section>
+
+    <section class="catalog" id="game-catalog" aria-labelledby="catalog-heading">
+      <div class="section-heading">
+        <div><p class="section-kicker">✿ WHAT'S IN THE ARCADE?</p><h2 id="catalog-heading">게임 골라봐! <span aria-hidden="true">✨</span></h2>
+          <p>친구들이랑 뭐 할지 고민될 땐 여기서 골라봐.</p></div>
+        <div class="item-count" id="itemCount" aria-live="polite">8개의 게임</div>
+      </div>
+      <div class="toolbar">
+        <div class="filters" id="filters" role="group" aria-label="게임 종류 선택">
+          <button type="button" class="filter-chip active" data-category="all" aria-pressed="true">🌈 전체</button>
+          <button type="button" class="filter-chip" data-category="mystery" aria-pressed="false">🎭 추리</button>
+          <button type="button" class="filter-chip" data-category="board" aria-pressed="false">🎲 보드·전략</button>
+          <button type="button" class="filter-chip" data-category="drawing" aria-pressed="false">🎨 그림</button>
+          <button type="button" class="filter-chip" data-category="duo" aria-pressed="false">✌️ 2인 가능</button>
+          <button type="button" class="filter-chip" data-category="favorite" aria-pressed="false">💗 찜한 게임</button>
+        </div>
+        <label class="search-box"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" maxlength="80" autocomplete="off" placeholder="게임 이름 검색" aria-label="게임 이름 검색"><kbd>/</kbd></label>
+      </div>
+      <div class="game-grid" id="gameGrid" aria-live="polite"></div>
+      <div id="emptyState" class="empty-state" hidden><span>🧸</span><h3>앗, 게임이 안 보여!</h3><p>다른 검색어나 카테고리로 다시 찾아봐.</p><button type="button" class="button button-primary" id="resetButton">전체 게임 보기 →</button></div>
+    </section>
+
+    <section class="bottom-grid">
+      <div class="recent-section panel">
+        <div class="panel-title"><span class="panel-icon">🕹️</span><div><h2>최근에 한 게임</h2><p>다시 놀러 갈까?</p></div></div>
+        <div id="recentGames" class="recent-games"></div>
+      </div>
+      <div class="pick-section panel">
+        <div class="panel-title"><span class="panel-icon">🎁</span><div><h2>뭘 할지 모르겠다고?</h2><p>우리 대신 골라줄게!</p></div></div>
+        <div class="pick-illustration" aria-hidden="true">🎲 <span>✦</span> 🎮</div>
+        <button type="button" class="button button-dark" id="randomButtonBottom">오늘의 게임 뽑기 <span>↗</span></button>
+      </div>
+    </section>
+
+    <section class="friend-banner"><div class="friend-characters" aria-hidden="true">🐥 🎀 🐸</div><div><b>같이 하면 더 재밌지!</b><p>링크 하나만 보내면 친구들도 게임을 고를 수 있어.</p></div><button type="button" id="shareButtonBottom">친구에게 공유하기 ↗</button></section>
+  </main>
+  <footer><div><b>★ 와글와글 게임랜드</b><span>우리가 만든 작은 놀이터 · GAME ON!</span></div><p>이곳은 게임을 모아둔 시작 페이지야. 각 게임은 별도의 사이트에서 열려.<br>일부 무료 게임 서버는 처음 실행할 때 잠깐 걸릴 수 있어.</p></footer>
+</div>
+<div id="modal" class="modal-layer" hidden>
+ <div class="modal-backdrop" data-close-modal></div>
+ <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <button class="modal-close" id="closeModal" aria-label="닫기">×</button>
+  <div id="modalBody"></div>
+ </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
