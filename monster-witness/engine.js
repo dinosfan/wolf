@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto'),{drawMonster,COUNT}=require('./monsters');
+const crypto=require('node:crypto'),{drawMonster,COUNT,filteredIds,FILTERS,cardCatalog,difficultyOf}=require('./monsters');
 const rooms=new Map(),rand=n=>crypto.randomInt(n);
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 const ensure=(b,m)=>{if(!b)throw Error(m)};
@@ -24,11 +24,11 @@ function makeRoom(name,size,cycles){
  let c=roomCode();while(rooms.has(c))c=roomCode();
  const p=human(name,0);
  const r={code:c,players:[p],hostToken:p.token,size,cycles,stage:'lobby',phase:'lobby',round:0,witness:0,
-  deck:[],used:[],current:null,deadline:null,timer:null,history:[],clients:new Set(),witnessPick:null};
+  deck:[],used:[],cardFilter:'all',current:null,deadline:null,timer:null,history:[],clients:new Set(),witnessPick:null};
  rooms.set(c,r);return {code:c,token:p.token,state:publicState(r,p)};
 }
 function chooseCard(r){
- const available=r.deck.length?r.deck: Array.from({length:COUNT},(_,i)=>({type:'builtin',seed:i+1,id:'built-'+(i+1)}));
+ const available=r.deck.length?r.deck: filteredIds(r.cardFilter).map(seed=>({type:'builtin',seed,id:'built-'+seed}));
  let options=available.filter(card=>!r.used.includes(card.id));
  if(!options.length){r.used=[];options=available}
  const choice=options[rand(options.length)];r.used.push(choice.id);return choice;
@@ -79,6 +79,9 @@ function act(b){
  }else if(b.type==='start'){
   host();live('lobby');ensure(r.players.length===r.size&&r.players.every(x=>x.ready),'모든 사람이 준비해야 해.');
   resetForRound(r);
+ }else if(b.type==='setDifficulty'){
+  host();live('lobby');ensure(FILTERS.includes(b.filter),'잘못된 난이도 설정이야.');
+  r.cardFilter=b.filter;r.used=[];announce(r,'🎚 몬스터 난이도 변경');
  }else if(b.type==='upload'){
   host();live('lobby');ensure(r.deck.length<100,'몬스터 사진은 최대 100장이야.');
   ensure(validDrawing(b.image)&&b.image.length<280000,'JPG/PNG/WEBP 이미지를 200KB 이하로 줄여서 올려줘.');
@@ -119,6 +122,9 @@ function publicState(r,p){
  const revealDraw=['witnessVote','artistVote','result'].includes(r.phase),revealImage=['artistVote','result'].includes(r.phase);
  return {code:r.code,seat:p.seat,isHost:r.hostToken===p.token,size:r.size,cycles:r.cycles,round:r.round,totalRounds:r.size*r.cycles,
  stage:r.stage,phase:r.phase,deadline:r.deadline,serverNow:Date.now(),witness:r.witness,deckCount:r.deck.length,
+ cardFilter:r.cardFilter,activeCardCount:r.deck.length||filteredIds(r.cardFilter).length,
+ usedCardIds:r.used.filter(x=>x.startsWith('built-')&&(r.phase==='result'||r.stage==='finished'||x!==r.current?.id)).map(x=>Number(x.slice(6))),
+ currentCard:r.phase==='result'?r.current?.type==='builtin'?{id:r.current.seed,difficulty:difficultyOf(r.current.seed)}:null:null,
  players:r.players.map(x=>({seat:x.seat,name:x.name,color:x.color,ready:x.ready,score:x.score,submitted:x.submitted,voted:x.vote!==null,
   drawing:revealDraw&&x.seat!==r.witness?x.drawing:null})),
  image:(r.phase==='observe'&&r.witness===p.seat||revealImage)?cardImage(r.current):null,
