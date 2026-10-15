@@ -8,7 +8,7 @@ const server=http.createServer(async(req,res)=>{
   if(u.pathname==='/health')return answer(res,200,{ok:true,name:'Monster Witness',rooms:G.rooms.size});
   if(req.method==='POST'&&u.pathname==='/api/create'){
    const b=await parse(req),name=String(b.name||'').trim().slice(0,16);
-   return answer(res,200,G.makeRoom(name,Number(b.size),Number(b.cycles||1)));
+   return answer(res,200,G.makeRoom(name,Number(b.size),Number(b.cycles||1),b.practice===true));
   }
   if(req.method==='POST'&&u.pathname==='/api/join'){
    const b=await parse(req),r=G.room(b.code),name=String(b.name||'').trim().slice(0,16);
