@@ -94,7 +94,7 @@ function action(b){
  else if(b.type==='nextRound'){host();check(r.stage==='roundEnd','아직 라운드가 끝나지 않았어.');begin(r)}
  else if(b.type==='newMatch'){host();check(r.stage==='matchEnd','최종 종료 후 가능해.');r.stage='lobby';r.round=0;r.startSeat=0;r.tiles=[];r.history=[];r.players.forEach(x=>{x.bank=[];x.carry=[];x.secured=[];x.ready=x.bot;x.home=false;x.pos=0});note(r)}
  else if(b.type==='direction'){active();check(r.phase==='choose','방향 선택 차례가 아니야.');
-  if(b.direction==='up'){check(p.dir==='down'&&p.carry.length>0,'보물을 든 상태에서만 귀환할 수 있어.');p.dir='up'}
+  if(b.direction==='up'){check(p.dir==='up'||p.dir==='down'&&p.carry.length>0,'보물을 든 상태에서만 귀환할 수 있어.');p.dir='up'}
   else check(b.direction==='down'&&p.dir==='down','귀환 중에는 다시 내려갈 수 없어.');
   r.phase='roll';note(r,p.name+(p.dir==='up'?' ↗ 귀환 선택':' ↘ 잠수 선택'))}
  else if(b.type==='roll'){active();check(r.phase==='roll','먼저 방향을 골라줘.');
