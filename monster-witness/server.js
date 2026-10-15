@@ -40,4 +40,4 @@ const server=http.createServer(async(req,res)=>{
   });
  }catch(e){return answer(res,400,{error:e.message||'서버 오류'})}
 });
-server.listen(process.env.PORT||3000,'0.0.0.0');
+require('./monsters').prepareMonsterDeck().then(()=>{console.log('Illustrated monster cards ready: 50');server.listen(process.env.PORT||3000,'0.0.0.0');}).catch(err=>{console.error('Monster deck preparation failed:',err);process.exit(1)});
