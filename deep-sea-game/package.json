@@ -1,0 +1,12 @@
+{
+  "name": "deep-sea-friends",
+  "version": "1.0.0",
+  "private": true,
+  "description": "2-6 player mobile Deep Sea Adventure room game",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
