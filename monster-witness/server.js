@@ -30,6 +30,16 @@ const server=http.createServer(async(req,res)=>{
    const timer=setInterval(()=>{try{res.write(': ping\n\n')}catch{}},25000);
    req.on('close',()=>{clearInterval(timer);r.clients.delete(res)});return;
   }
+  if(req.method==='GET'&&u.pathname==='/api/catalog'){
+   return answer(res,200,{cards:require('./monsters').cardCatalog(),count:50});
+  }
+  if(req.method==='GET'&&/^\/api\/card\/(?:[1-9]|[1-4][0-9]|50)\.webp$/.test(u.pathname)){
+   const card=Number(u.pathname.slice('/api/card/'.length,-'.webp'.length));
+   const data=require('./monsters').drawMonster(card);
+   const bytes=Buffer.from(data.slice(data.indexOf(',')+1),'base64');
+   res.writeHead(200,{'Content-Type':'image/webp','Content-Length':bytes.length,'Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff'});
+   res.end(bytes);return;
+  }
   if(req.method!=='GET')return answer(res,405,{error:'요청 방식 오류'});
   const name=u.pathname==='/'?'index.html':u.pathname.slice(1);
   if(!['index.html','core.js','ui.js','style.css'].includes(name))return answer(res,404,{error:'없는 페이지야.'});
