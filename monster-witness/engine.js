@@ -1,11 +1,50 @@
 'use strict';
-const crypto=require('node:crypto'),{drawMonster,COUNT,filteredIds,FILTERS,cardCatalog,difficultyOf}=require('./monsters');
+const crypto=require('node:crypto'),{drawMonster,COUNT,filteredIds,FILTERS,cardCatalog,difficultyOf}=require('./monsters'),{botHint,botPicture}=require('./bots');
 const rooms=new Map(),rand=n=>crypto.randomInt(n);
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 const ensure=(b,m)=>{if(!b)throw Error(m)};
 const id=()=>crypto.randomUUID(),roomCode=()=>Array.from({length:5},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rand(32)]).join('');
 const COLORS=['#5bd6d0','#efae69','#9a9cf8','#df8db9','#8bc879','#6daee6','#e0d279','#d19d80'];
 function human(name,seat){return {seat,name,color:COLORS[seat],token:id(),ready:false,score:0,drawing:null,submitted:false,vote:null}}
+function addBot(r){
+ ensure(r.players.length<r.size,'참가 자리가 가득 찼어.');
+ const num=r.players.filter(x=>x.bot).length+1,p=human('🤖 봇 '+num,r.players.length);
+ p.bot=true;p.ready=true;r.players.push(p);return p;
+}
+function fillBots(r){while(r.players.length<r.size)addBot(r)}
+function scheduleBots(r){
+ const phase=r.phase,round=r.round;
+ if(phase==='draw'){
+  const targets=r.players.filter(p=>p.bot&&p.seat!==r.witness&&!p.submitted);
+  if(!targets.length)return;
+  setTimeout(async()=>{
+   if(r.phase!==phase||r.round!==round)return;
+   try{
+    const images=await Promise.all(targets.map(p=>botPicture(r.current,p.seat)));
+    if(r.phase!==phase||r.round!==round)return;
+    targets.forEach((p,i)=>{p.drawing=images[i];p.submitted=true});
+    announce(r,'🤖 봇 '+targets.length+'명이 그림을 제출했어.');
+    if(r.players.filter(p=>p.seat!==r.witness).every(p=>p.submitted))beginWitnessVote(r);
+   }catch(e){console.error('Bot drawing failed',e)}
+  },r.practice?900:2800);
+ }else if(phase==='witnessVote'&&r.players[r.witness]?.bot){
+  setTimeout(()=>{
+   if(r.phase!==phase||r.round!==round)return;
+   const artists=r.players.filter(x=>x.seat!==r.witness),chosen=artists[rand(artists.length)];
+   r.witnessPick=chosen.seat;beginArtistVote(r);
+  },1600);
+ }else if(phase==='artistVote'){
+  const bots=r.players.filter(x=>x.bot&&x.seat!==r.witness&&x.vote===null);
+  if(!bots.length)return;
+  setTimeout(()=>{
+   if(r.phase!==phase||r.round!==round)return;
+   const artists=r.players.filter(x=>x.seat!==r.witness);
+   bots.forEach(p=>{const options=artists.filter(x=>x!==p);p.vote=options[rand(options.length)].seat});
+   announce(r,'🗳 봇 투표 완료');
+   if(artists.every(p=>p.vote!==null))tally(r);
+  },1300);
+ }
+}
 function room(code){const r=rooms.get(String(code||'').toUpperCase());ensure(r,'방을 찾지 못했어.');return r}
 function auth(b){const r=room(b.code),p=r.players.find(x=>x.token===b.token);ensure(p,'플레이어 인증이 만료됐어.');return [r,p]}
 function announce(r,log){
@@ -18,14 +57,16 @@ function deadline(r,seconds,fn){
  const round=r.round,phase=r.phase;
  r.timer=setTimeout(()=>{r.timer=null;if(r.round===round&&r.phase===phase)fn(r)},seconds*1000);
 }
-function makeRoom(name,size,cycles){
+function makeRoom(name,size,cycles,practice=false){
  ensure(name,'닉네임을 입력해줘.');ensure(Number.isInteger(size)&&size>=3&&size<=8,'3~8명만 참가할 수 있어.');
  ensure([1,2].includes(cycles),'목격자 차례는 1회 또는 2회야.');
  let c=roomCode();while(rooms.has(c))c=roomCode();
  const p=human(name,0);
  const r={code:c,players:[p],hostToken:p.token,size,cycles,stage:'lobby',phase:'lobby',round:0,witness:0,
-  deck:[],used:[],cardFilter:'all',current:null,deadline:null,timer:null,history:[],clients:new Set(),witnessPick:null};
- rooms.set(c,r);return {code:c,token:p.token,state:publicState(r,p)};
+  deck:[],used:[],cardFilter:'all',current:null,deadline:null,timer:null,history:[],clients:new Set(),witnessPick:null,practice:!!practice};
+ rooms.set(c,r);
+ if(practice){fillBots(r);r.players.forEach(x=>{x.ready=true});resetForRound(r)}
+ return {code:c,token:p.token,state:publicState(r,p)};
 }
 function chooseCard(r){
  const available=r.deck.length?r.deck: filteredIds(r.cardFilter).map(seed=>({type:'builtin',seed,id:'built-'+seed}));
@@ -38,10 +79,10 @@ function resetForRound(r){
  r.round++;r.witness=(r.round-1)%r.size;r.witnessPick=null;r.current=chooseCard(r);
  for(const p of r.players){p.drawing=null;p.submitted=false;p.vote=null}
  r.stage='playing';r.phase='observe';
- deadline(r,20,beginDrawing);announce(r,'👁️ '+r.players[r.witness].name+'님이 20초 동안 괴물을 관찰 중!');
+ deadline(r,r.players[r.witness].bot?4:20,beginDrawing);announce(r,'👁️ '+r.players[r.witness].name+'님이 몬스터를 관찰 중!');
 }
-function beginDrawing(r){r.phase='draw';deadline(r,120,beginWitnessVote);announce(r,'✏️ 괴물 설명과 그림 그리기 시작! 120초')}
-function beginWitnessVote(r){r.phase='witnessVote';deadline(r,90,autoWitnessVote);announce(r,'🖼 그림 공개! 목격자가 원본을 보지 않고 선택할 차례야.')}
+function beginDrawing(r){r.phase='draw';deadline(r,120,beginWitnessVote);announce(r,'✏️ 괴물 설명과 그림 그리기 시작! 120초');scheduleBots(r)}
+function beginWitnessVote(r){r.phase='witnessVote';deadline(r,90,autoWitnessVote);announce(r,'🖼 그림 공개! 목격자가 원본을 보지 않고 선택할 차례야.');scheduleBots(r)}
 function tally(r){
  const artists=r.players.filter(p=>p.seat!==r.witness);
  if(r.size===3){artists.find(x=>x.seat===r.witnessPick).score++}
@@ -59,7 +100,7 @@ function tally(r){
 }
 function beginArtistVote(r){
  if(r.size===3){tally(r);return}
- r.phase='artistVote';deadline(r,80,autoArtistVote);announce(r,'👾 원본 공개! 화가들은 가장 비슷한 그림에 투표해.');
+ r.phase='artistVote';deadline(r,80,autoArtistVote);announce(r,'👾 원본 공개! 화가들은 가장 비슷한 그림에 투표해.');scheduleBots(r);
 }
 function autoWitnessVote(r){
  const artists=r.players.filter(p=>p.seat!==r.witness);
@@ -75,7 +116,17 @@ function act(b){
  const [r,p]=auth(b),host=()=>ensure(p.token===r.hostToken,'방장만 사용할 수 있어.');
  const live=phase=>ensure(r.phase===phase,'지금은 해당 단계가 아니야.');
  if(b.type==='ready'){
-  live('lobby');p.ready=!!b.ready;announce(r);
+  live('lobby');ensure(!p.bot,'봇은 자동으로 준비해.');p.ready=!!b.ready;announce(r);
+ }else if(b.type==='addBot'||b.type==='fillBots'){
+  host();live('lobby');ensure(r.players.length<r.size,'자리가 부족해.');
+  if(b.type==='addBot')addBot(r);else fillBots(r);
+  announce(r,'🤖 연습용 봇 추가');
+ }else if(b.type==='removeBot'){
+  host();live('lobby');const target=r.players.find(x=>x.seat===Number(b.seat)&&x.bot);
+  ensure(target,'제거할 봇을 선택해.');
+  r.players=r.players.filter(x=>x!==target);
+  r.players.forEach((x,i)=>{x.seat=i;x.color=COLORS[i]});
+  announce(r,'봇을 제거했어.');
  }else if(b.type==='start'){
   host();live('lobby');ensure(r.players.length===r.size&&r.players.every(x=>x.ready),'모든 사람이 준비해야 해.');
   resetForRound(r);
@@ -109,7 +160,7 @@ function act(b){
  }else if(b.type==='again'){
   host();ensure(r.stage==='finished','최종 결과가 아니야.');
   if(r.timer)clearTimeout(r.timer);r.stage='lobby';r.phase='lobby';r.round=0;r.used=[];
-  r.players.forEach(x=>{x.score=0;x.ready=false;x.drawing=null;x.vote=null});
+  r.players.forEach(x=>{x.score=0;x.ready=!!x.bot;x.drawing=null;x.submitted=false;x.vote=null});
   announce(r,'새 경기 준비!');
  }else if(b.type==='leave'){
   live('lobby');r.players=r.players.filter(x=>x!==p);r.players.forEach((x,i)=>{x.seat=i;x.color=COLORS[i]});
@@ -121,11 +172,12 @@ function act(b){
 function publicState(r,p){
  const revealDraw=['witnessVote','artistVote','result'].includes(r.phase),revealImage=['artistVote','result'].includes(r.phase);
  return {code:r.code,seat:p.seat,isHost:r.hostToken===p.token,size:r.size,cycles:r.cycles,round:r.round,totalRounds:r.size*r.cycles,
- stage:r.stage,phase:r.phase,deadline:r.deadline,serverNow:Date.now(),witness:r.witness,deckCount:r.deck.length,
+ stage:r.stage,phase:r.phase,deadline:r.deadline,serverNow:Date.now(),witness:r.witness,deckCount:r.deck.length,practice:r.practice,
+ botHint:r.phase==='draw'&&r.players[r.witness]?.bot?botHint(r.current):null,
  cardFilter:r.cardFilter,activeCardCount:r.deck.length||filteredIds(r.cardFilter).length,
  usedCardIds:r.used.filter(x=>x.startsWith('built-')&&(r.phase==='result'||r.stage==='finished'||x!==r.current?.id)).map(x=>Number(x.slice(6))),
  currentCard:r.phase==='result'?r.current?.type==='builtin'?{id:r.current.seed,difficulty:difficultyOf(r.current.seed)}:null:null,
- players:r.players.map(x=>({seat:x.seat,name:x.name,color:x.color,ready:x.ready,score:x.score,submitted:x.submitted,voted:x.vote!==null,
+ players:r.players.map(x=>({seat:x.seat,name:x.name,color:x.color,bot:!!x.bot,ready:x.ready,score:x.score,submitted:x.submitted,voted:x.vote!==null,
   drawing:revealDraw&&x.seat!==r.witness?x.drawing:null})),
  image:(r.phase==='observe'&&r.witness===p.seat||revealImage)?cardImage(r.current):null,
  myDrawing:r.phase==='draw'&&p.seat!==r.witness?p.drawing:null,
