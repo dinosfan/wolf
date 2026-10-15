@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto'),{drawMonster}=require('./monsters');
+const crypto=require('node:crypto'),{drawMonster,COUNT}=require('./monsters');
 const rooms=new Map(),rand=n=>crypto.randomInt(n);
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 const ensure=(b,m)=>{if(!b)throw Error(m)};
@@ -28,7 +28,7 @@ function makeRoom(name,size,cycles){
  rooms.set(c,r);return {code:c,token:p.token,state:publicState(r,p)};
 }
 function chooseCard(r){
- const available=r.deck.length?r.deck: Array.from({length:48},(_,i)=>({type:'builtin',seed:i+1,id:'built-'+(i+1)}));
+ const available=r.deck.length?r.deck: Array.from({length:COUNT},(_,i)=>({type:'builtin',seed:i+1,id:'built-'+(i+1)}));
  let options=available.filter(card=>!r.used.includes(card.id));
  if(!options.length){r.used=[];options=available}
  const choice=options[rand(options.length)];r.used.push(choice.id);return choice;
