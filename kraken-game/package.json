@@ -1,0 +1,12 @@
+{
+  "name": "no-touch-kraken-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "3-8 player mobile secret-role game",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
