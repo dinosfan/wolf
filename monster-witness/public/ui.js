@@ -7,7 +7,7 @@ function rules(){
  '<li>그다음 원본을 공개하고 화가들이 자기 그림을 제외한 다른 사람 그림에 투표한다.</li>'+
  '<li>화가 투표의 최다 득표자(동점 포함) +1, 목격자 선택을 받은 화가 +1, 목격자 선택이 최다 득표 그룹에 속하면 목격자 +1.</li>'+
  '<li>3인에서는 화가 투표 없이 목격자 선택을 받은 화가만 +1. 모두 목격자를 1회(빠른 모드) 또는 2회(원작 모드) 맡으면 끝!</li></ol>'+
- '<p class="muted">카드는 기본 제공 오리지널 몬스터 48종으로 시작하며, 방장은 자신의 몬스터 카드 사진을 추가할 수 있어. 등록한 사진은 그 방에서만 사용돼.</p>');
+ '<p class="muted">카드는 기본 제공 오리지널 몬스터 50종으로 시작하며, 방장은 자신의 몬스터 카드 사진을 추가할 수 있어. 등록한 사진은 그 방에서만 사용돼.</p>');
 }
 function home(){
  return head()+'<section class="hero"><div class="hero-monster">👁️👾🖍️</div><span class="eyebrow">GUESS WHAT I SAW</span>'+
@@ -29,7 +29,7 @@ function lobby(){
  '<small>'+(p.ready?'✅ 준비 완료':'⏳ 준비 중')+'</small></div>').join('')+
  Array.from({length:state.size-players.length},()=>'<div class="seat vacant"><span class="avatar">?</span><b>빈자리</b><small>참가 대기</small></div>').join('')+'</div></section>'+
  (state.isHost?'<section class="panel"><h2>🗂 몬스터 카드 모음</h2>'+
- '<p class="muted">기본 제공 오리지널 몬스터 48종. 직접 촬영한 카드 사진을 등록하면 <b>등록한 카드만</b> 이번 방에서 사용해.</p>'+
+ '<p class="muted">기본 제공 오리지널 몬스터 50종. 직접 촬영한 카드 사진을 등록하면 <b>등록한 카드만</b> 이번 방에서 사용해.</p>'+
  '<div class="upload-row"><b>사진 덱: '+state.deckCount+'장</b><label class="upload-button">+ 카드 이미지 등록<input type="file" accept="image/*" multiple onchange="uploadPhotos(this)" hidden></label></div>'+
  (state.deckCount?'<button class="alt full" onclick="act(\'clearDeck\')">사진 덱 비우고 기본 카드 사용</button>':'')+'</section>':'')+
  '<section class="panel"><button class="primary full" onclick="act(\'ready\',{ready:'+(!players[state.seat].ready)+'})">'+
