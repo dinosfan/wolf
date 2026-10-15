@@ -25,8 +25,8 @@ function lobby(){
  const players=state.players,canStart=players.length===state.size&&players.every(p=>p.ready);
  return head()+'<section class="panel center"><span class="tag">대기실 '+players.length+'/'+state.size+'명</span><h1>수사팀을 모으는 중</h1>'+
  '<div class="invite">'+esc(state.code)+'</div><button class="alt full" onclick="copyInvite()">🔗 초대 링크 복사</button></section>'+
- '<section class="panel"><h2>참가자</h2><div class="seats">'+players.map(p=>'<div class="seat"><span class="avatar" style="--seat:'+p.color+'">🎨</span><b>'+esc(p.name)+(p.seat===state.seat?' · 나':'')+'</b>'+
- '<small>'+(p.ready?'✅ 준비 완료':'⏳ 준비 중')+'</small></div>').join('')+
+ '<section class="panel"><h2>참가자</h2><div class="seats">'+players.map(p=>'<div class="seat"><span class="avatar" style="--seat:'+p.color+'">'+(p.bot?'🤖':'🎨')+'</span><b>'+esc(p.name)+(p.seat===state.seat?' · 나':'')+'</b>'+
+ '<small>'+(p.bot?'🤖 연습용 봇':p.ready?'✅ 준비 완료':'⏳ 준비 중')+'</small>'+(p.bot&&state.isHost?'<button class="mini alt" onclick="act(\'removeBot\',{seat:'+p.seat+'})">봇 제거</button>':'')+'</div>').join('')+
  Array.from({length:state.size-players.length},()=>'<div class="seat vacant"><span class="avatar">?</span><b>빈자리</b><small>참가 대기</small></div>').join('')+'</div></section>'+
  (state.isHost?'<section class="panel"><h2>🗂 몬스터 카드 모음</h2>'+
  '<p class="muted">기본 제공 오리지널 몬스터 50종. 직접 촬영한 카드 사진을 등록하면 <b>등록한 카드만</b> 이번 방에서 사용해.</p>'+
@@ -179,6 +179,44 @@ result=function(){
  '<div class="played-cards">'+seen.map(id=>'<span>#'+String(id).padStart(2,'0')+'</span>').join('')+'</div></section>'+
  (state.stage==='finished'?'<button type="button" class="alt full" onclick="openCatalog()">🗂 몬스터 도감 열기</button>':'');
  return html.replace('<details class="panel">',detail+'<details class="panel">');
+};
+
+
+async function practiceNow(){
+ if(pending)return;
+ pending=true;
+ try{
+  const name=document.getElementById('nick')?.value.trim()||'나',
+  size=Number(document.getElementById('size')?.value||4),
+  cycles=Number(document.getElementById('cycles')?.value||1);
+  saveSession(await request('/api/create',{name,size,cycles,practice:true}));
+ }catch(e){toast(e.message)}finally{pending=false}
+}
+const normalHome=home;
+home=function(){
+ const markup=normalHome();
+ return markup.replace('</form><button type="button" class="alt full" onclick="openCatalog()">',
+ '</form><button type="button" class="primary full practice-btn" onclick="practiceNow()">🤖 혼자 연습하기 · 봇과 바로 시작!</button><button type="button" class="alt full" onclick="openCatalog()">');
+};
+const normalLobby=lobby;
+lobby=function(){
+ const markup=normalLobby();
+ const controls=state.isHost&&state.players.length<state.size?
+ '<section class="panel bot-controls"><h2>🤖 빈자리에 봇 추가하기</h2>'+
+ '<p class="muted">친구가 부족하면 연습용 봇이 대신 그림을 그리고 투표해. 봇은 자동 준비 완료!</p>'+
+ '<div class="bot-buttons"><button class="alt" onclick="act(\'addBot\')">🤖 봇 1명 추가</button>'+
+ '<button class="primary" onclick="act(\'fillBots\')">🤖 빈자리 모두 채우기</button></div></section>':'';
+ return markup.replace('<section class="panel"><button class="primary full" ',controls+'<section class="panel"><button class="primary full" ');
+};
+const normalDrawing=drawing;
+drawing=function(){
+ const markup=normalDrawing();
+ if(state.botHint&&state.witness!==state.seat){
+  const help='<section class="panel bot-hint"><h2>🗣️ 봇 목격자의 설명</h2>'+
+   '<p>'+esc(state.botHint)+'</p><small>이 특징을 듣고 자기 그림판에 그려봐!</small></section>';
+  return markup.replace('<section class="drawing-page">',help+'<section class="drawing-page">');
+ }
+ return markup;
 };
 
 async function boot(){if(session){await refresh();if(session)connect()}else render()}
