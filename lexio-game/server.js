@@ -15,7 +15,7 @@ function room(s){const r=rooms.get(String(s||'').toUpperCase());assert(r,'방을
 function auth(b){const r=room(b.code),p=r.players.find(p=>p.token===b.token);assert(p,'플레이어 인증이 만료되었습니다.');return [r,p];}
 function notify(r){for(const res of [...r.clients]){try{res.write('data: refresh\n\n')}catch{r.clients.delete(res)}}}
 function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();notify(r);scheduleBot(r);}
-const REACTIONS=['😂','🔥','😭','👏','😎','😱'];
+const REACTIONS=['😂','🔥','😭','⏰','😎','😱'];
 function emitFx(r,type,seat,details={}){
  const event={id:++r.fxSeq,type,seat,ts:Date.now(),round:r.round,...details};
  r.fxEvents.push(event);
@@ -133,10 +133,14 @@ function action(b){
   assert((r.stage==='playing'||r.stage==='roundEnd'||r.stage==='matchEnd')&&!p.isBot,'게임 중인 플레이어만 반응할 수 있어요.');
   const emoji=String(b.emoji||'');
   assert(REACTIONS.includes(emoji),'지원하지 않는 이모지예요.');
+  const hurry=emoji==='⏰';
+  assert(!hurry||(r.stage==='playing'&&r.turn!==p.seat),'재촉은 상대 차례에만 보낼 수 있어요.');
   const now=Date.now();
   assert(!p.lastReactionAt||now-p.lastReactionAt>=1100,'이모지는 잠깐 간격을 두고 보내주세요.');
+  assert(!hurry||!p.lastHurryAt||now-p.lastHurryAt>=5000,'재촉은 5초에 한 번 보낼 수 있어요.');
   p.lastReactionAt=now;
-  emitFx(r,'emoji',p.seat,{emoji});touch(r);
+  if(hurry)p.lastHurryAt=now;
+  emitFx(r,'emoji',p.seat,hurry?{emoji,targetSeat:r.turn}:{emoji});touch(r);
  }else if(b.type==='leave'){
   assert(r.stage==='lobby','진행 중에는 나갈 수 없어요.');
   r.players=r.players.filter(q=>q!==p);r.players.forEach((q,i)=>q.seat=i);const people=r.players.filter(x=>!x.isBot);if(r.hostToken===p.token&&people.length)r.hostToken=people[0].token;
