@@ -7,7 +7,7 @@ let fxRoom=null,lastFxSeq=null,visualFx=[],fxTimer=null,reactionBusy=false,lastR
 const SOUND_PREF='lexio-sound-v2',VIBRATE_PREF='lexio-vibrate-v2';
 let soundEnabled=false,vibrateEnabled=true;
 try{soundEnabled=localStorage.getItem(SOUND_PREF)==='on';vibrateEnabled=localStorage.getItem(VIBRATE_PREF)!=='off'}catch{}
-const REACTION_EMOJI=['😂','🔥','😭','👏','😎','😱'];
+const REACTION_EMOJI=['😂','🔥','😭','⏰','😎','😱'];
 try{session=JSON.parse(localStorage.getItem(K)||'null')}catch{localStorage.removeItem(K)}
 function html(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function tileInfo(id){return {id,n:Math.floor(id/4)+1,s:id%4}}
@@ -25,7 +25,8 @@ function liveFx(){
  return visualFx.filter(e=>e.until>now);
 }
 function fxForSeat(seat){
- return liveFx().filter(e=>e.seat===seat&&['play','pass','emoji'].includes(e.type)).slice(-1)[0]||null;
+ return liveFx().filter(e=>['play','pass','emoji'].includes(e.type)&&
+  (e.type==='emoji'&&e.emoji==='⏰'?e.targetSeat===seat:e.seat===seat)).slice(-1)[0]||null;
 }
 function cleanupEffects(){
  if(fxTimer!==null){clearTimeout(fxTimer);fxTimer=null}
@@ -80,6 +81,10 @@ function applyState(next){
   for(const event of incoming){
    visualFx.push({...event,until:Date.now()+(event.type==='win'?3400:event.type==='emoji'?2700:1800)});
    if(['play','pass','win'].includes(event.type))playSfx(event.type);
+   if(event.type==='emoji'&&event.emoji==='⏰'&&event.targetSeat===next.seat){
+    try{if(vibrateEnabled&&!document.hidden)navigator.vibrate?.([80,50,80])}catch{}
+    playSfx('turn');
+   }
   }
   visualFx=liveFx().slice(-16);
  }
@@ -100,7 +105,11 @@ async function sendReaction(emoji){
  finally{reactionBusy=false}
 }
 function reactionBar(){
- const buttons=REACTION_EMOJI.map(e=>'<button type="button" class="emoji-quick" aria-label="'+e+' 반응 보내기" onclick="sendReaction(\''+e+'\')">'+e+'</button>').join('');
+ const buttons=REACTION_EMOJI.map(e=>e==='⏰'?
+  '<button type="button" class="emoji-quick emoji-hurry" aria-label="빨리 내라고 재촉하기" title="빨리 내!" '+
+  ((state.stage!=='playing'||state.turn===state.seat)?'disabled ':'')+
+  'onclick="sendReaction(\'⏰\')"><span>⏰</span><small>빨리 내!</small></button>':
+  '<button type="button" class="emoji-quick" aria-label="'+e+' 반응 보내기" onclick="sendReaction(\''+e+'\')">'+e+'</button>').join('');
  return '<section class="reaction-bar" aria-label="빠른 이모지 반응"><div class="reaction-top"><span>친구에게 반응 보내기</span><div class="effect-settings">'+
  '<button type="button" class="mini alt" onclick="toggleSound()" aria-label="효과음 '+(soundEnabled?'끄기':'켜기')+'">'+(soundEnabled?'🔊 소리 ON':'🔇 소리 OFF')+'</button>'+
  '<button type="button" class="mini alt" onclick="toggleVibration()" aria-label="진동 '+(vibrateEnabled?'끄기':'켜기')+'">'+(vibrateEnabled?'📳 진동 ON':'📴 진동 OFF')+'</button></div></div>'+
@@ -210,7 +219,8 @@ function lobby(){
 function playersList(){
  return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>{
   const fx=fxForSeat(p.seat);
-  const mark=fx?(fx.type==='emoji'?'<span class="fx-bubble fx-emoji" aria-label="이모지 반응">'+html(fx.emoji)+'</span>':
+  const mark=fx?(fx.type==='emoji'&&fx.emoji==='⏰'?'<span class="fx-bubble fx-emoji fx-hurry" aria-label="빨리 내! 재촉 반응">⏰ 빨리 내!</span>':
+   fx.type==='emoji'?'<span class="fx-bubble fx-emoji" aria-label="이모지 반응">'+html(fx.emoji)+'</span>':
    fx.type==='pass'?'<span class="fx-bubble fx-pass">PASS</span>':
    '<span class="fx-bubble fx-play">냈다!</span>'):'';
   return '<div class="person'+(p.seat===state.turn&&state.stage==='playing'?' active':'')+(fx?' fx-active':'')+'">'+mark+
