@@ -71,7 +71,14 @@ function settle(r,doubleVictory){
  if(doubleVictory){teamPoints[team(outgoing)]=200}
  else{
   // Any unclaimed cards in the last trick go to the player who put down the highest hand.
-  if(r.pile.length&&r.lastSeat!==null){r.players[r.lastSeat].tricks.push(...r.pile);r.pile=[]}
+  if(r.pile.length&&r.lastSeat!==null){
+   if(r.table?.type==='single'&&r.table.cards[0]==='DG'){
+    // If the third player finishes with Dragon, the trick still belongs to an opponent.
+    const enemy=r.players.filter(p=>team(p.seat)!==team(r.lastSeat)).sort((a,b)=>b.hand.length-a.hand.length)[0];
+    enemy.tricks.push(...r.pile);
+   }else r.players[r.lastSeat].tricks.push(...r.pile);
+   r.pile=[]
+  }
   const tail=r.players.find(p=>p.hand.length);
   if(tail){
    const enemy=1-team(tail.seat);
@@ -130,10 +137,10 @@ function play(r,p,ids,chosen,wish){
   r.turn=r.players[(p.seat+2)%4].hand.length?(p.seat+2)%4:next(r,(p.seat+2)%4);
   notify(r);return;
  }
- if(ids.includes('MJ'))err(Number.isInteger(wish)&&wish>=2&&wish<=14,'마작을 낼 때는 2부터 A까지 원하는 숫자를 골라.');
+ if(ids.includes('MJ'))err(wish===0||Number.isInteger(wish)&&wish>=2&&wish<=14,'마작 요청: 없음 또는 2부터 A까지 선택해.');
  p.hand=p.hand.filter(x=>!ids.includes(x));p.hasPlayed=true;
  r.pile.push(...ids);r.table={...option,cards:[...ids],owner:p.seat};r.lastSeat=p.seat;r.passes=0;
- if(ids.includes('MJ'))r.wish=wish
+ if(ids.includes('MJ'))r.wish=wish||null
  if(r.wish&&ids.some(x=>R.card(x).rank===r.wish))r.wish=null;
  r.history.push({seat:p.seat,cards:[...ids],kind:option.type,round:r.round});
  r.logs.push((option.bomb?'💣 ': '🃏 ')+p.name+': '+ids.map(R.label).join(' '));
