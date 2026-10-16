@@ -1,5 +1,8 @@
 'use strict';
 const GAMES=[
+ {"id":"nine-dragons","title":"구룡투","short":"1대1 전략 승부!","desc":"친구와 머리를 맞대고 겨루는 2인 전략 대결 게임. 누가 더 영리하게 승부할까?","url":"https://nine-dragons-duel.aglowpin8.chatgpt.site","min":2,"max":2,"category":"board","tags":["2인 전용","전략","대결"],"theme":"dawn","emoji":"🐉","motif":"⚔️","stamp":"NEW"},
+ {"id":"indian-poker","title":"인디언 포커","short":"상대 숫자만 보고 블러핑!","desc":"상대에게 보이는 카드를 읽고 베팅과 심리전으로 승부하는 2인 카드게임.","url":"https://indian-poker-duel.aglowpin8.chatgpt.site","min":2,"max":2,"category":"mystery","tags":["2인 전용","카드","블러핑"],"theme":"peach","emoji":"🃏","motif":"🪙","stamp":"NEW"},
+ {"id":"number-baseball","title":"숫자야구","short":"스트라이크와 볼로 숫자 추리!","desc":"숨겨진 숫자를 추측하고 스트라이크·볼 힌트로 정답을 먼저 찾아내는 2인 대결.","url":"https://number-baseball-duel.aglowpin8.chatgpt.site","min":2,"max":2,"category":"mystery","tags":["2인 전용","숫자","추리"],"theme":"mint","emoji":"⚾","motif":"🔢","stamp":"NEW"},
  {id:'tichu',title:'티츄 프렌즈',short:'2대2 팀플레이로 대역전!',desc:'팀원에게 카드를 교환하고, 마작 요청·폭탄·티츄 선언으로 1등을 노리는 전략 카드게임. 혼자서 봇과 연습도 가능!',url:'https://tichu-friends-mobile-2026.onrender.com',min:4,max:4,category:'board',tags:['팀전','전략','카드','봇'],theme:'purple',emoji:'🐉',motif:'🀄',stamp:'NEW'},
  {id:'monster',title:'몬스터 목격자',short:'이상한 괴물을 설명해 봐!',desc:'한 명이 몬스터를 보고 설명하면 친구들이 각자 그림을 그려. 누가 가장 비슷하게 그렸을까?',url:'https://monster-witness-friends-2026.onrender.com',min:3,max:8,category:'drawing',tags:['그림','웃긴 게임','파티'],theme:'mint',emoji:'👾',motif:'🎨',stamp:'NEW'},
  {id:'kraken',title:'노터치 크라켄',short:'크라켄을 건드리지 마!',desc:'비밀 역할을 감추고 다른 사람의 카드를 공개해. 보물을 찾는 탐험대와 스켈레톤의 속고 속이는 대결!',url:'https://no-touch-kraken-2026.onrender.com',min:3,max:8,category:'mystery',tags:['추리','블러핑','역할'],theme:'sea',emoji:'🐙',motif:'⚓',stamp:'HOT'},
