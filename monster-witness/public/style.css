@@ -84,7 +84,7 @@ footer{text-align:center;font-size:10px;color:#7798a8;padding:26px 3px}
 .deck-settings button{margin-top:12px}
 .card-collection{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-height:60vh;overflow:auto;padding:8px 2px 15px}
 .collection-item{overflow:hidden;border-radius:11px;border:1px solid #80a6b4;background:#f5f3eb;color:#223448;min-width:0}
-.collection-item img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:#f3eddf}
+.collection-item img{display:block;width:100%;aspect-ratio:3/4;object-fit:contain;background:#f3eddf}
 .collection-item>div{display:flex;justify-content:space-between;align-items:center;gap:3px;padding:5px}
 .collection-item b{font-size:12px;font-variant-numeric:tabular-nums}
 .difficulty{font-size:10px;font-weight:800;border-radius:5px;padding:4px 5px;background:#e8ecf0;color:#536475}
