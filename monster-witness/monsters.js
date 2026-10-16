@@ -11,8 +11,15 @@ async function prepareMonsterDeck(){
   if(!meta.width||!meta.height)throw Error('몬스터 카드 시트 크기를 읽지 못했습니다.');
   const cards=await Promise.all(Array.from({length:COUNT},async(_,idx)=>{
    const col=idx%10,row=Math.floor(idx/10);
-   const left=Math.round(col*meta.width/10)+3,top=Math.round(row*meta.height/5)+3;
-   const right=Math.round((col+1)*meta.width/10)-3,bottom=Math.round((row+1)*meta.height/5)-3;
+   // The illustrated sheet's painted card frames are slightly taller than
+   // the nominal 10 x 5 grid. A symmetric 3px inset included the next row's
+   // rounded border (particularly visible under card #27).
+   // Keep the full card header and footer, but stop before the next frame.
+   const cellWidth=meta.width/10,cellHeight=meta.height/5;
+   const left=Math.round(col*cellWidth)+2;
+   const right=Math.round((col+1)*cellWidth)-2;
+   const top=Math.max(0,Math.round(row*cellHeight)-3);
+   const bottom=row===4?meta.height-4:Math.round((row+1)*cellHeight)-18;
    const buf=await sharp(sheet).extract({left,top,width:right-left,height:bottom-top}).webp({quality:84,effort:5}).toBuffer();
    return 'data:image/webp;base64,'+buf.toString('base64');
   }));
