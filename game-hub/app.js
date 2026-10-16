@@ -1,5 +1,6 @@
 'use strict';
 const GAMES=[
+ {id:'tichu',title:'티츄 프렌즈',short:'2대2 팀플레이로 대역전!',desc:'팀원에게 카드를 교환하고, 마작 요청·폭탄·티츄 선언으로 1등을 노리는 전략 카드게임. 혼자서 봇과 연습도 가능!',url:'https://tichu-friends-mobile-2026.onrender.com',min:4,max:4,category:'board',tags:['팀전','전략','카드','봇'],theme:'purple',emoji:'🐉',motif:'🀄',stamp:'NEW'},
  {id:'monster',title:'몬스터 목격자',short:'이상한 괴물을 설명해 봐!',desc:'한 명이 몬스터를 보고 설명하면 친구들이 각자 그림을 그려. 누가 가장 비슷하게 그렸을까?',url:'https://monster-witness-friends-2026.onrender.com',min:3,max:8,category:'drawing',tags:['그림','웃긴 게임','파티'],theme:'mint',emoji:'👾',motif:'🎨',stamp:'NEW'},
  {id:'kraken',title:'노터치 크라켄',short:'크라켄을 건드리지 마!',desc:'비밀 역할을 감추고 다른 사람의 카드를 공개해. 보물을 찾는 탐험대와 스켈레톤의 속고 속이는 대결!',url:'https://no-touch-kraken-2026.onrender.com',min:3,max:8,category:'mystery',tags:['추리','블러핑','역할'],theme:'sea',emoji:'🐙',motif:'⚓',stamp:'HOT'},
  {id:'deepsea',title:'딥 씨 어드벤처',short:'욕심내면 산소가 모자라!',desc:'보물을 챙길수록 발걸음은 무거워지고 산소는 줄어들어. 과연 잠수함까지 돌아올 수 있을까?',url:'https://deep-sea-friends-2026.onrender.com',min:2,max:6,category:'board',tags:['주사위','눈치','보드'],theme:'ocean',emoji:'🤿',motif:'💎',stamp:'PICK'},
