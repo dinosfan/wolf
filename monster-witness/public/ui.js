@@ -142,7 +142,7 @@ async function openCatalog(){
   modal('<h2>👾 몬스터 도감 · '+count+'장</h2>'+
    '<p class="muted">오리지널 몬스터 카드 전체와 난이도야. 플레이 전에는 스포일러가 될 수 있어!</p>'+
    '<div class="card-collection">'+cards.map(c=>'<div class="collection-item">'+
-    '<img loading="lazy" decoding="async" src="/api/card/'+c.id+'.webp" alt="몬스터 카드 '+c.id+'">'+
+    '<img loading="lazy" decoding="async" src="/api/card/'+c.id+'.webp?v=2" alt="몬스터 카드 '+c.id+'">'+
     '<div><b>#'+String(c.id).padStart(2,'0')+'</b><span class="difficulty d-'+c.difficulty+'">'+D_NAME[c.difficulty]+'</span></div></div>').join('')+
    '</div>');
  }catch(e){toast('도감 로딩 실패: '+e.message)}
