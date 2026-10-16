@@ -147,7 +147,7 @@ function playableBar(){
  const containsMJ=selected.includes('MJ');
  const anyBomb=choices.some(x=>x.bomb),canAct=mine||anyBomb;
  const wishSelect=containsMJ?'<div class="wish-select"><label for="mahjongWish">🀄 원하는 숫자</label>'+
- '<select id="mahjongWish" onchange="wishValue=Number(this.value)">'+Array.from({length:13},(_,i)=>i+2).map(v=>'<option value="'+v+'" '+(v===wishValue?'selected':'')+'>'+RANKS[v]+'</option>').join('')+'</select></div>':'';
+ '<select id="mahjongWish" onchange="wishValue=Number(this.value)">'+['<option value="0"'+(wishValue===0?' selected':'')+'>요청 안 함</option>'].concat(Array.from({length:13},(_,i)=>i+2).map(v=>'<option value="'+v+'" '+(v===wishValue?'selected':'')+'>'+RANKS[v]+'</option>')).join('')+'</select></div>':'';
  return '<section class="actions '+(mine?'myturn':'')+'">'+
  '<div class="action-title">'+(mine?'✨ 내 차례야! 조합을 내거나 패스해.':'⏳ '+safe(state.players[state.turn]?.name)+'님 차례 · 폭탄은 끼어들기 가능')+'</div>'+
  (selected.length?'<div class="selection-summary">'+selected.length+'장 선택 · '+(available?choices.map(optionDescription).join(' / '):'낼 수 없는 카드 조합')+'</div>':
