@@ -90,7 +90,13 @@ function scoring(r,winner){
  r.stage='settlement';
  if(r.mode==='official'){
   r.settleCards=[];r.settleEnds=Date.now()+30000;
-  r.players.forEach(p=>p.settled=!!p.isBot);
+  r.players.forEach(p=>p.settled=false);
+  for(const bot of r.players.filter(p=>p.isBot)){
+   const candidates=bot.seat===winner?['winner','underdog']:['silver'];
+   const chosen=candidates.find(id=>S.eligibleSettlement(r,bot,id));
+   if(chosen)S.useSettlement(r,bot,chosen);
+   else bot.settled=true;
+  }
   r.settleTimer=setTimeout(()=>{if(r.stage==='settlement')finalizeRound(r)},30000);
   touch(r,r.players[winner].name+'님이 '+r.round+'라운드 승리! 정산 특수카드는 30초 안에 사용하세요.');
  }else finalizeRound(r);
