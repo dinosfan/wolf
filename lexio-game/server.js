@@ -80,7 +80,7 @@ function stopRoomTimers(r){
 function publicState(r,p){
  return {code:r.code,stage:r.stage,round:r.round,maxRounds:r.maxRounds,mode:r.mode,expansionAvailable:false,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
- specialCards:S.publicCards(r,p),usedSpecial:!!p.usedSpecial,armedScore:p.armedScore||null,fairGame:!!r.fairGame,skipSeat:r.skipSeat??null,
+ specialCards:S.publicCards(r,p),usedSpecial:!!p.usedSpecial,armedScore:p.armedScore||null,lastSettlementCard:p.lastSettlementCard||null,fairGame:!!r.fairGame,skipSeat:r.skipSeat??null,
  settlement:r.stage==='settlement'?{done:r.players.map(q=>!!q.settled),deadline:r.settleEnds,winner:r.winner}:null,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips,isBot:!!q.isBot})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,fxSeq:r.fxSeq,effects:r.fxEvents.slice(-16),
@@ -89,7 +89,7 @@ function publicState(r,p){
 }
 function begin(r){
  if(r.mode==='official'&&r.round===0)S.deal(r,shuffle);
- r.players.forEach(p=>{p.usedSpecial=false;p.settled=false;p.armedScore=null});r.fairGame=false;r.skipSeat=null;
+ r.players.forEach(p=>{p.usedSpecial=false;p.settled=false;p.armedScore=null;p.lastSettlementCard=null});r.fairGame=false;r.skipSeat=null;
  const deck=shuffle(Array.from({length:r.maxNum*4},(_,i)=>i));
  const per=r.size===4?13:r.size===6?10:12;
  r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*per,(i+1)*per),r.maxNum);p.ready=false;});
@@ -129,8 +129,13 @@ function scoring(r,winner){
    if(chosen)S.useSettlement(r,bot,chosen);
    else bot.settled=true;
   }
-  r.settleTimer=setTimeout(()=>{if(r.stage==='settlement')finalizeRound(r)},60000);
-  touch(r,r.players[winner].name+'님이 '+r.round+'라운드 승리! 정산 특수카드를 확인하고 60초 안에 확정하세요.');
+  if(r.players.every(q=>q.settled)){
+   touch(r,r.players[winner].name+'님이 '+r.round+'라운드 승리! 예약한 정산 특수카드를 처리했습니다.');
+   finalizeRound(r);
+  }else{
+   r.settleTimer=setTimeout(()=>{if(r.stage==='settlement')finalizeRound(r)},60000);
+   touch(r,r.players[winner].name+'님이 '+r.round+'라운드 승리! 정산 특수카드를 확인하고 60초 안에 확정하세요.');
+  }
  }else finalizeRound(r);
 }
 function applySkippedTurn(r){
@@ -210,7 +215,7 @@ function action(b){
  }else if(b.type==='newMatch'){
   host();assert(r.stage==='matchEnd','최종 결과 화면에서 가능합니다.');
   r.stage='lobby';r.round=0;r.trick=null;r.history=[];r.results=null;r.winner=null;r.winnerName=null;r.settleCards=[];r.skipSeat=null;r.fairGame=false;
-  r.players.forEach(q=>{q.chips=64;q.hand=[];q.special=[];q.usedSpecial=false;q.armedScore=null;q.settled=false;q.ready=!!q.isBot;});touch(r);
+  r.players.forEach(q=>{q.chips=64;q.hand=[];q.special=[];q.usedSpecial=false;q.armedScore=null;q.lastSettlementCard=null;q.settled=false;q.ready=!!q.isBot;});touch(r);
  }else if(b.type==='pass'){
   assert(r.stage==='playing'&&p.seat===r.turn,'내 차례에만 패스할 수 있어요.');
   assert(r.trick,'선 플레이어는 패스할 수 없어요.');
