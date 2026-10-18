@@ -296,22 +296,27 @@ function hand(){
 
 function specialButtons(){
  if(state.mode!=='official'||state.stage!=='playing')return '';
- const mine=state.turn===state.seat,canUse=mine&&!state.usedSpecial&&!state.fairGame;
+ const mine=state.turn===state.seat,free=!state.usedSpecial&&!state.fairGame;
  const cards=state.specialCards||[];
- const body=cards.length?cards.map(c=>'<button type="button" class="special-card"'+(!canUse||c.kind==='score'?' disabled':'')+
-   ' onclick="openSpecial(\''+c.id+'\')" title="'+html(c.desc)+'">'+
-   '<strong>'+(c.kind==='joker'?'🃏':'✨')+' '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):
-   '<p class="muted">남은 특수카드가 없어요.</p>';
+ const body=cards.length?cards.map(c=>{
+   const score=c.kind==='score',armed=score&&state.armedScore===c.id;
+   const usable=free&&(score||mine);
+   const hint=score?(armed?'✅ 사용 예약됨 · 다시 누르면 해제':'미리 예약하기 · 조건을 만족하면 라운드 종료 시 자동 발동'):c.desc;
+   return '<button type="button" class="special-card'+(armed?' special-armed':'')+'"'+(!usable?' disabled':'')+
+    ' onclick="openSpecial(\''+c.id+'\')" title="'+html(c.desc)+'">'+
+    '<strong>'+(score?'🏆':c.kind==='joker'?'🃏':'✨')+' '+html(c.name)+(armed?' · 예약됨':'')+'</strong><small>'+html(hint)+'</small></button>';
+  }).join(''):'<p class="muted">남은 특수카드가 없어요.</p>';
  return '<section class="panel special-panel"><div class="hand-title"><h2>🎴 특수카드 <small>'+cards.length+'장</small></h2><span class="pill">'+
   (state.usedSpecial?'이번 라운드 사용 완료':state.fairGame?'공정한 게임 적용 중':'라운드당 1장')+'</span></div>'+
   '<div class="special-grid">'+body+'</div>'+
-  '<p class="muted">점수 관련 카드는 라운드 종료 시에만 사용해요. 경기 시작 시 특수카드 3장을 받고, 사용하지 않은 카드는 다음 라운드에도 가지고 가요.</p></section>';
+  '<p class="muted">🏆 하극상·승자 독식·실버 라이닝은 내 차례가 아니어도 예약할 수 있어요. 승리 등 조건을 만족하면 자동 사용하고, 아니면 소모하지 않아요. 예약을 해제하려면 다시 누르세요.</p></section>';
 }
 function openSpecial(id){
- if(!state||state.stage!=='playing'||state.turn!==state.seat)return;
+ if(!state||state.stage!=='playing')return;
  const card=(state.specialCards||[]).find(c=>c.id===id);
  if(!card||state.usedSpecial||state.fairGame)return;
- if(card.kind==='score')return toast('라운드 점수 정산 때만 사용할 수 있어요.');
+ if(card.kind==='score')return invoke('armScore',{card:id});
+ if(state.turn!==state.seat)return toast('행동 카드는 내 차례에만 사용할 수 있어요.');
  if(card.kind==='joker'){
   const limit=state.size===3?5:state.size===4?6:7;
   const opts=Array.from({length:limit-2},(_,i)=>'<option value="'+(i+3)+'">'+(i+3)+'</option>').join('');
