@@ -91,7 +91,7 @@ function useTurn(r,p,b,api){
   r.skipSeat=target.seat;
  }else if(id==='double'){
   const ids=Array.isArray(b.ids)?b.ids:[],extra=Array.isArray(b.extraIds)?b.extraIds:[];
-  if(!ids.length||ids.length!==extra.length||!new Set([...ids,...extra]).size===ids.length+extra.length)
+  if(!ids.length||ids.length!==extra.length||new Set([...ids,...extra]).size!==ids.length+extra.length)
    throw Error('같은 장수의 서로 다른 두 족보를 선택해 주세요.');
   if(![1,2,3,5].includes(ids.length))throw Error('각 족보는 1·2·3·5장이어야 해요.');
   if(![...ids,...extra].every(Number.isInteger)||![...ids,...extra].every(t=>p.hand.includes(t)))
