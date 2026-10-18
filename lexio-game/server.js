@@ -6,7 +6,10 @@ const crypto=require('node:crypto');
 const R=require('./rules');
 const B=require('./bots');
 const rooms=new Map();
-const MAX_ROUNDS=5;
+const DEFAULT_ROUNDS=5;
+// The official special-card set has 18 cards, but the complete action timing
+// and effects are not yet verified. Keep it selectable in the lobby, but
+// never start it as a misleading copy of the base game.
 const rand=n=>crypto.randomInt(n);
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 function code(){return Array.from({length:5},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rand(32)]).join('');}
@@ -51,7 +54,7 @@ function scheduleBot(r){
  },750);
 }
 function publicState(r,p){
- return {code:r.code,stage:r.stage,round:r.round,maxRounds:MAX_ROUNDS,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
+ return {code:r.code,stage:r.stage,round:r.round,maxRounds:r.maxRounds,mode:r.mode,expansionAvailable:false,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips,isBot:!!q.isBot})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,fxSeq:r.fxSeq,effects:r.fxEvents.slice(-16),
@@ -72,13 +75,26 @@ function scoring(r,winner){
  r.players.forEach((p,i)=>p.chips+=delta[i]);
  r.results=r.players.map((p,i)=>({seat:p.seat,name:p.name,left:p.hand.length,twos:p.hand.filter(id=>R.tile(id).n===2).length,effective:effective[i],delta:delta[i],chips:p.chips}));
  r.winner=winner;
- r.stage=(r.round>=MAX_ROUNDS||r.players.some(p=>p.chips<=0))?'matchEnd':'roundEnd';
+ r.stage=(r.round>=r.maxRounds||r.players.some(p=>p.chips<=0))?'matchEnd':'roundEnd';
  emitFx(r,'win',winner);touch(r,r.players[winner].name+'님이 패를 모두 내고 '+r.round+'라운드 승리!');
 }
 function action(b){
  const [r,p]=auth(b),host=()=>assert(p.token===r.hostToken,'방장만 할 수 있어요.');
  const next=i=>(i+1)%r.size;
- if(b.type==='ready'){
+ if(b.type==='configure'){
+  host();assert(r.stage==='lobby','대기실에서만 경기 설정을 바꿀 수 있어요.');
+  const size=Number(b.size),maxRounds=Number(b.maxRounds),mode=String(b.mode||'');
+  assert(Number.isInteger(size)&&size>=3&&size<=6,'인원은 3~6명으로 설정하세요.');
+  assert([3,5].includes(maxRounds),'라운드는 3 또는 5만 선택할 수 있어요.');
+  assert(['basic','official'].includes(mode),'기본 또는 공식 확장 중 선택하세요.');
+  const humans=r.players.filter(q=>!q.isBot).length;
+  assert(size>=humans,'입장한 사람 수보다 작게 설정할 수 없어요.');
+  const changed=size!==r.size||maxRounds!==r.maxRounds||mode!==r.mode;
+  while(r.players.length>size){const idx=r.players.findLastIndex(q=>q.isBot);assert(idx!==-1,'인원 변경을 할 수 없어요.');r.players.splice(idx,1);}
+  r.players.forEach((q,i)=>{q.seat=i;if(changed)q.ready=!!q.isBot});
+  r.size=size;r.maxNum=size===3?9:size===4?13:15;r.maxRounds=maxRounds;r.mode=mode;
+  touch(r,changed?'방장이 설정을 변경했어요. 모두 다시 준비해 주세요.':null);
+ }else if(b.type==='ready'){ 
   assert(r.stage==='lobby'&&!p.isBot,'대기실에서 사람만 준비할 수 있어요.');p.ready=!!b.ready;touch(r);
  }else if(b.type==='addBot'){
   host();assert(r.stage==='lobby'&&r.players.length<r.size,'대기실에 빈 자리가 있어야 봇을 넣을 수 있어요.');
@@ -97,7 +113,9 @@ function action(b){
   shuffle(r.players).forEach((q,i)=>q.seat=i);
   r.players.sort((a,b)=>a.seat-b.seat);r.players.forEach(q=>q.ready=!!q.isBot);touch(r,'좌석 순서를 섞었습니다.');
  }else if(b.type==='start'){
-  host();assert(r.stage==='lobby'&&r.players.length===r.size&&r.players.every(p=>p.ready),'설정된 인원 모두 준비해야 시작할 수 있어요.');begin(r);
+  host();assert(r.stage==='lobby'&&r.players.length===r.size&&r.players.every(p=>p.ready),'설정된 인원 모두 준비해야 시작할 수 있어요.');
+  assert(r.mode==='basic','공식 특수카드의 모든 효과와 사용 타이밍을 검증하기 전에는 확장 경기를 시작할 수 없어요. 기본 모드를 선택해 주세요.');
+  begin(r);
  }else if(b.type==='nextRound'){
   host();assert(r.stage==='roundEnd','라운드 종료 후에 가능합니다.');begin(r);
  }else if(b.type==='newMatch'){
@@ -149,6 +167,7 @@ function action(b){
  }else assert(false,'잘못된 요청입니다.');
  return publicState(r,p);
 }
+function practiceSize(b){return b.practice===true?Number(b.size??4):4;}
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));}
 function data(req){
  return new Promise((resolve,reject)=>{let b='',closed=false;
@@ -162,10 +181,10 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/health')return json(res,200,{ok:true,name:'Lexio 3-6 with bots'});
   if(req.method==='POST'&&url.pathname==='/api/create'){
-   const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=Number(b.size??4),practice=b.practice===true;
+   const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=practiceSize(b),practice=b.practice===true;
    assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=6,'게임 인원은 3~6명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64};
-   const r={code:c,size,maxNum:size===3?9:size===4?13:15,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],fxSeq:0,fxEvents:[],updated:Date.now()};
+   const r={code:c,size,maxNum:size===3?9:size===4?13:15,maxRounds:DEFAULT_ROUNDS,mode:'basic',players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],fxSeq:0,fxEvents:[],updated:Date.now()};
    rooms.set(c,r);if(practice){fillBots(r);begin(r);}return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
