@@ -41,6 +41,27 @@ function scheduleBot(r){
   if(!rooms.has(code)||r.stage!=='playing'||r.round!==round)return;
   const p=r.players[r.turn];
   if(!p?.isBot)return;
+  if(r.mode==='official'&&!p.usedSpecial&&!r.fairGame){
+   const targets=r.players.filter(q=>q.seat!==p.seat);
+   try{
+    if(p.special.includes('gift')&&p.hand.length===1){
+     const t=[...targets].sort((a,b)=>a.hand.length-b.hand.length)[0];
+     action({code:r.code,token:p.token,type:'useSpecial',card:'gift',tile:p.hand[0],target:t.seat});return;
+    }
+    if(p.special.includes('mortal')&&p.hand.length>0&&p.hand.length<=4){
+     const n=R.tile(p.hand[0]).n;
+     if(p.hand.every(id=>R.tile(id).n===n)){
+      action({code:r.code,token:p.token,type:'useSpecial',card:'mortal',number:n});return;
+     }
+    }
+    if(p.special.includes('skip')&&r.skipSeat==null){
+     const target=[...targets].filter(q=>q.hand.length<=2).sort((a,b)=>a.hand.length-b.hand.length)[0];
+     if(target){
+      action({code:r.code,token:p.token,type:'useSpecial',card:'skip',target:target.seat});return;
+     }
+    }
+   }catch(e){r.history.push('봇 특수카드 오류: '+String(e.message));}
+  }
   const rivals=r.players.filter(x=>x.seat!==p.seat).map(x=>x.hand.length);
   const decision=B.botMove(p.hand,r.maxNum,r.trick?.ev||null,rivals);
   try{
