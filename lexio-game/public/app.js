@@ -12,8 +12,8 @@ const REACTION_EMOJI=['😂','🔥','😭','⏰','😎','😱'];
 try{session=JSON.parse(localStorage.getItem(K)||'null')}catch{localStorage.removeItem(K)}
 function html(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function tileInfo(id){return {id,n:Math.floor(id/4)+1,s:id%4}}
-function rank(n){return n===2?13:n===1?12:n-3}
-function sortIDs(ids){return [...ids].sort((a,b)=>rank(tileInfo(a).n)-rank(tileInfo(b).n)||a%4-b%4)}
+function rank(n,maxNum=state?.maxNum||15){return n===2?maxNum-1:n===1?maxNum-2:n-3}
+function sortIDs(ids){const maxNum=state?.maxNum||15;return [...ids].sort((a,b)=>rank(tileInfo(a).n,maxNum)-rank(tileInfo(b).n,maxNum)||a%4-b%4)}
 function tileView(id,opts={}){
  const t=tileInfo(id),sel=selected.has(id)&&opts.selectable;
  return '<button type="button" class="tile s'+t.s+(opts.short?' short':'')+(sel?' selected':'')+'"'+(opts.selectable?' onclick="toggle('+id+')" aria-pressed="'+!!sel+'"':' disabled')+' aria-label="'+SUITS[t.s]+' '+t.n+'">'+
@@ -301,7 +301,7 @@ function result(){
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
  '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. 5라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
-function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+turnRibbon()+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
 function leaveRoom(){if(confirm('정말 방을 나갈까요?'))invoke('leave')}
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
