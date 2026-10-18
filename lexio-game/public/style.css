@@ -148,3 +148,8 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 @media(prefers-reduced-motion:reduce){
  .turn-announcement.show .turn-announcement-card,.turn-ribbon-mine,.turn-ribbon-arrow{animation:none!important}
 }
+
+/* v1.8 — dismissible 1.9-second turn splash; no permanent top ribbon. */
+.turn-announcement{pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.turn-announcement:focus-visible{outline:4px solid #ffe4a7;outline-offset:-8px}
+.turn-announcement-card .turn-dismiss{display:block;font-size:12px;font-weight:750;letter-spacing:0;color:#785d3f;margin-top:6px}
