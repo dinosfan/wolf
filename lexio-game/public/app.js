@@ -4,6 +4,7 @@ const K='lexio-session-four-v1',params=new URLSearchParams(location.search);
 const SUITS=['구름','별','달','해'],SYMS=['☁','★','☾','☀'];
 let session=null,state=null,events=null,selected=new Set(),pending=false,toastTimer=null;
 let fxRoom=null,lastFxSeq=null,visualFx=[],fxTimer=null,reactionBusy=false,lastReactionSent=0,soundContext=null;
+let turnAnnouncementTimer=null;
 const SOUND_PREF='lexio-sound-v2',VIBRATE_PREF='lexio-vibrate-v2';
 let soundEnabled=false,vibrateEnabled=true;
 try{soundEnabled=localStorage.getItem(SOUND_PREF)==='on';vibrateEnabled=localStorage.getItem(VIBRATE_PREF)!=='off'}catch{}
@@ -71,6 +72,29 @@ function toggleVibration(){
  if(vibrateEnabled)vibrateTurn();
  render();
 }
+function clearTurnAnnouncement(){
+ const banner=document.getElementById('turnAnnouncement');
+ if(turnAnnouncementTimer!==null){clearTimeout(turnAnnouncementTimer);turnAnnouncementTimer=null}
+ if(banner){banner.hidden=true;banner.classList.remove('show')}
+}
+function showTurnAnnouncement(){
+ const banner=document.getElementById('turnAnnouncement');
+ if(!banner||document.hidden)return;
+ clearTurnAnnouncement();
+ banner.hidden=false;
+ // Force animation restart if turns arrive back-to-back.
+ void banner.offsetWidth;
+ banner.classList.add('show');
+ turnAnnouncementTimer=setTimeout(()=>{banner.hidden=true;banner.classList.remove('show');turnAnnouncementTimer=null},1900);
+}
+function turnRibbon(){
+ if(!state||state.stage!=='playing')return '';
+ const mine=state.seat===state.turn;
+ return '<div class="turn-ribbon '+(mine?'turn-ribbon-mine':'turn-ribbon-wait')+'" role="status">'+
+ (mine?'<span class="turn-ribbon-icon">✨</span><span><strong>지금 내 차례!</strong><small>아래에서 타일을 선택해서 내거나 패스해</small></span><span class="turn-ribbon-arrow">↓</span>':
+ '<span class="turn-ribbon-icon">⏳</span><span><strong>'+html(state.players[state.turn].name)+'님 차례</strong><small>잠시 기다려줘</small></span>')+
+ '</div>';
+}
 function applyState(next){
  const previous=state,newRoom=fxRoom!==next.code;
  if(newRoom){
@@ -90,10 +114,11 @@ function applyState(next){
  }
  state=next;
  const myTurn=next.stage==='playing'&&next.turn===next.seat;
- const turned=myTurn&&previous&&previous.code===next.code&&(
-   previous.stage!=='playing'||previous.round!==next.round||previous.turn!==next.turn
- );
- if(turned){vibrateTurn();playSfx('turn')}
+ const turned=myTurn&&(!previous||previous.code!==next.code||
+   previous.stage!=='playing'||previous.round!==next.round||
+   previous.turn!==next.turn||previous.seat!==next.seat);
+ if(turned){vibrateTurn();playSfx('turn');showTurnAnnouncement()}
+ else if(!myTurn)clearTurnAnnouncement();
  render();cleanupEffects();
 }
 async function sendReaction(emoji){
@@ -276,8 +301,11 @@ function result(){
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
  '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. 5라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
-function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+turnRibbon()+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
 function leaveRoom(){if(confirm('정말 방을 나갈까요?'))invoke('leave')}
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
-boot();setInterval(()=>{if(session&&!document.hidden)refresh()},8000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+boot();setInterval(()=>{if(session&&!document.hidden)refresh()},8000);document.addEventListener('visibilitychange',()=>{
+ if(!document.hidden)refresh();
+ else clearTurnAnnouncement();
+});
