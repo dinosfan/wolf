@@ -348,6 +348,18 @@ function useJoker(id){
  closeOverlay();invoke('play',{ids:[...selected],jokerCard:id,jokerNum:number});
 }
 
+function doubleActions(){
+ if(doubleFirst===null||state.stage!=='playing')return '';
+ return '<section class="panel"><h2>✨ 더블샷: 두 족보 제출</h2>'+
+ (doubleFirst.length?'<p>첫 번째 '+doubleFirst.length+'장 확정. 더 강한 두 번째 족보를 선택하세요.</p>':'<p>첫 번째 족보를 선택한 뒤 확정하세요.</p>')+
+ (doubleFirst.length?'<button class="full" onclick="submitDouble()" '+(selected.size!==doubleFirst.length?'disabled':'')+'>두 족보 내기</button>':
+ '<button class="full" onclick="captureDouble()" '+(![1,2,3,5].includes(selected.size)?'disabled':'')+'>첫 족보 확정</button>')+
+ '<button class="alt full" onclick="cancelDouble()">취소</button></section>';
+}
+function captureDouble(){if(![1,2,3,5].includes(selected.size))return;doubleFirst=[...selected];selected.clear();render()}
+function submitDouble(){if(!doubleFirst||selected.size!==doubleFirst.length)return;invoke('useSpecial',{card:'double',ids:doubleFirst,extraIds:[...selected]})}
+function cancelDouble(){doubleFirst=null;selected.clear();render()}
+
 function controls(){
  if(state.stage!=='playing')return'';
  const mine=state.turn===state.seat;
