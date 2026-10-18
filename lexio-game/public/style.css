@@ -153,3 +153,17 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 .turn-announcement{pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .turn-announcement:focus-visible{outline:4px solid #ffe4a7;outline-offset:-8px}
 .turn-announcement-card .turn-dismiss{display:block;font-size:12px;font-weight:750;letter-spacing:0;color:#785d3f;margin-top:6px}
+
+/* Room setup: phone-first three-field layout with touch-sized controls. */
+.room-settings{overflow:hidden}
+.room-setting-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.room-setting-grid label{display:block;min-width:0;font-size:12px;font-weight:800;color:#dce7f1}
+.room-setting-grid .field{display:block;width:100%;min-width:0;max-width:100%;margin-top:7px;padding:12px 7px;
+ font-size:13px;border-radius:11px;white-space:normal;min-height:45px}
+.setting-warning{border:1px solid #b08949;background:#493722;color:#ffe1ac;padding:11px 12px;border-radius:11px;
+ font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:520px){.room-setting-grid{grid-template-columns:1fr 1fr}
+ .room-setting-grid label:nth-child(2){grid-column:span 2;grid-row:2}
+ .room-setting-grid label:nth-child(3){grid-column:2;grid-row:1}}
+@media(max-width:350px){.room-setting-grid{grid-template-columns:1fr}
+ .room-setting-grid label:nth-child(2),.room-setting-grid label:nth-child(3){grid-column:auto;grid-row:auto}}
