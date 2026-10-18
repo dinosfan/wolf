@@ -37,7 +37,7 @@ function available(r,p,id){
  return true;
 }
 function spend(r,p,id){if(!available(r,p,id))throw Error('이 특수카드를 사용할 수 없어요. (라운드당 1장)');
- p.usedSpecial=true;p.special=p.special.filter(x=>x!==id);}
+ p.usedSpecial=true;p.armedScore=null;p.special=p.special.filter(x=>x!==id);}
 function jokerTile(id,num,size){
  const card=cards[id],limit=size===3?5:size===4?6:7;
  if(!card||card.kind!=='joker'||!Number.isInteger(num)||num<3||num>limit)
@@ -123,7 +123,7 @@ function eligibleSettlement(r,p,id){
 }
 function useSettlement(r,p,id){
  if(!eligibleSettlement(r,p,id))throw Error('현재 정산에서 사용할 수 없는 카드예요.');
- spend(r,p,id);p.settled=true;
+ spend(r,p,id);p.settled=true;p.lastSettlementCard=id;
  r.settleCards.push({seat:p.seat,id});
 }
 function settlementScores(r){
