@@ -183,3 +183,26 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 .double-panel p{color:#fff0ca;font-size:13px;line-height:1.5}
 @media(max-width:355px){.special-grid{grid-template-columns:1fr}
  .special-card{min-height:75px;padding:10px}}
+
+/* v2.2: a predictable exit action in every room phase. */
+.bar{min-width:0}
+.bar .brand{min-width:0;white-space:nowrap}
+.header-actions{min-width:0}
+.header-actions .exit-quick{background:#70394a;border:1px solid #ac687e;color:#fff;font-weight:800}
+.header-actions .exit-quick:active{background:#8e4a5c}
+.exit-footer{margin:20px 0 4px;padding:13px 14px;border:1px solid #425367;border-radius:13px;background:#162737}
+.exit-footer button{min-height:44px;font-weight:850}
+.exit-footer p{margin:7px 0 0;text-align:center;font-size:11px;color:#a5b7c9}
+@media(max-width:430px){
+ .bar{gap:5px;padding:5px 0 10px}
+ .bar .brand{font-size:16px;letter-spacing:-.6px}
+ .bar .brand i{font-size:18px}
+ .bar .brand small{display:none}
+ .header-actions{gap:4px}
+ .header-actions .mini{padding:8px 6px;font-size:11px;min-height:35px}
+}
+@media(max-width:335px){
+ .bar .brand{font-size:14px}
+ .header-actions .ranking-trigger{font-size:10px}
+ .header-actions .exit-quick{font-size:10px}
+}
