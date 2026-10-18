@@ -293,6 +293,61 @@ function hand(){
  '<p class="picked">선택 '+selected.size+'장 '+(selected.size? ' · '+[...selected].map(id=>{let t=tileInfo(id);return SYMS[t.s]+t.n}).join(' '):'')+'</p>'+
  '<p class="muted">같은 장수로 더 강한 패만 낼 수 있어요. 패스해도 이후에 다시 낼 수 있어요.</p></section>';
 }
+
+function specialButtons(){
+ if(state.mode!=='official'||state.stage!=='playing')return '';
+ const mine=state.turn===state.seat,canUse=mine&&!state.usedSpecial&&!state.fairGame;
+ const cards=state.specialCards||[];
+ const body=cards.length?cards.map(c=>'<button type="button" class="special-card"'+(!canUse||c.kind==='score'?' disabled':'')+
+   ' onclick="openSpecial(\''+c.id+'\')" title="'+html(c.desc)+'">'+
+   '<strong>'+(c.kind==='joker'?'🃏':'✨')+' '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):
+   '<p class="muted">남은 특수카드가 없어요.</p>';
+ return '<section class="panel special-panel"><div class="hand-title"><h2>🎴 특수카드 <small>'+cards.length+'장</small></h2><span class="pill">'+
+  (state.usedSpecial?'이번 라운드 사용 완료':state.fairGame?'공정한 게임 적용 중':'라운드당 1장')+'</span></div>'+
+  '<div class="special-grid">'+body+'</div>'+
+  '<p class="muted">점수 관련 카드는 라운드 종료 시에만 사용해요. 경기 시작 시 특수카드 3장을 받고, 사용하지 않은 카드는 다음 라운드에도 가지고 가요.</p></section>';
+}
+function openSpecial(id){
+ if(!state||state.stage!=='playing'||state.turn!==state.seat)return;
+ const card=(state.specialCards||[]).find(c=>c.id===id);
+ if(!card||state.usedSpecial||state.fairGame)return;
+ if(card.kind==='score')return toast('라운드 점수 정산 때만 사용할 수 있어요.');
+ if(card.kind==='joker'){
+  const limit=state.size===3?5:state.size===4?6:7;
+  const opts=Array.from({length:limit-2},(_,i)=>'<option value="'+(i+3)+'">'+(i+3)+'</option>').join('');
+  return popup('<h2>🃏 '+html(card.name)+'</h2><p>현재 선택한 타일과 지정한 조커 타일을 함께 냅니다.</p>'+
+   '<p class="muted">먼저 내 패에서 타일을 선택하고 이 카드를 누르세요. 조커만 1장 낼 수도 있어요.</p>'+
+   '<label>대체할 숫자<select class="field" id="specialNumber">'+opts+'</select></label>'+
+   '<button class="full" onclick="useJoker(\''+id+'\')">조커 포함 제출</button>');
+ }
+ if(id==='double'){
+  doubleFirst=[];selected.clear();render();toast('첫 번째 족보를 선택하고 [첫 족보 확정]을 눌러 주세요.');return;
+ }
+ if(id==='fair')return invoke('useSpecial',{card:id});
+ const targets=state.players.filter(p=>p.seat!==state.seat).map(p=>'<option value="'+p.seat+'">'+html(p.name)+'</option>').join('');
+ const tiles=sortIDs(state.hand).map(n=>'<option value="'+n+'">'+SYMS[n%4]+' '+tileInfo(n).n+'</option>').join('');
+ const needsTarget=['gift','barter','skip'].includes(id),needsTile=['gift','barter'].includes(id),needsNumber=id==='mortal';
+ const choices=(needsTarget?'<label>상대<select class="field" id="specialTarget">'+targets+'</select></label>':'')+
+  (needsTile?'<label>보낼 타일<select class="field" id="specialTile">'+tiles+'</select></label>':'')+
+  (needsNumber?'<label>일괄 제거할 숫자<select class="field" id="specialNumber">'+Array.from({length:state.maxNum},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')+'</select></label>':'');
+ popup('<h2>'+html(card.name)+'</h2><p>'+html(card.desc)+'</p>'+choices+
+   '<button class="full" onclick="confirmSpecial(\''+id+'\')">특수카드 사용</button>');
+}
+function confirmSpecial(id){
+ const target=document.getElementById('specialTarget')?.value;
+ const tile=document.getElementById('specialTile')?.value;
+ const number=document.getElementById('specialNumber')?.value;
+ const payload={card:id};
+ if(target!==undefined)payload.target=Number(target);
+ if(tile!==undefined)payload.tile=Number(tile);
+ if(number!==undefined)payload.number=Number(number);
+ closeOverlay();invoke('useSpecial',payload);
+}
+function useJoker(id){
+ const number=Number(document.getElementById('specialNumber')?.value);
+ closeOverlay();invoke('play',{ids:[...selected],jokerCard:id,jokerNum:number});
+}
+
 function controls(){
  if(state.stage!=='playing')return'';
  const mine=state.turn===state.seat;
