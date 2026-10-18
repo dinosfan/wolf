@@ -375,7 +375,7 @@ function settlementScreen(){
  '<div class="special-grid">'+special+'</div>'+
  (done?'<p class="success">내 선택 확정 · 다른 참가자를 기다리는 중</p>':
  '<button class="full" onclick="invoke(\'settlePass\')">특수카드 없이 정산 확정</button>')+
- '</section>'+playersList()+reactionBar();
+ '</section>'+playersList();
 }
 
 function controls(){
