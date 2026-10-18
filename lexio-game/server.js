@@ -8,9 +8,7 @@ const B=require('./bots');
 const S=require('./special');
 const rooms=new Map();
 const DEFAULT_ROUNDS=5;
-// The official special-card set has 18 cards, but the complete action timing
-// and effects are not yet verified. Keep it selectable in the lobby, but
-// never start it as a misleading copy of the base game.
+// The official set has 18 cards; this game clearly labels its 17 verified-card adaptation.
 const rand=n=>crypto.randomInt(n);
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 function code(){return Array.from({length:5},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rand(32)]).join('');}
@@ -75,6 +73,10 @@ function scheduleBot(r){
   }
  },750);
 }
+function stopRoomTimers(r){
+ if(r.botTimer){clearTimeout(r.botTimer);r.botTimer=null;}
+ if(r.settleTimer){clearTimeout(r.settleTimer);r.settleTimer=null;}
+}
 function publicState(r,p){
  return {code:r.code,stage:r.stage,round:r.round,maxRounds:r.maxRounds,mode:r.mode,expansionAvailable:false,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
@@ -83,7 +85,7 @@ function publicState(r,p){
  players:r.players.map(q=>({seat:q.seat,name:q.name,ready:q.ready,count:q.hand.length,chips:q.chips,isBot:!!q.isBot})),
  hand:[...p.hand],turn:r.turn,leader:r.leader,passes:r.passes,fxSeq:r.fxSeq,effects:r.fxEvents.slice(-16),
  trick:r.trick?{by:r.trick.by,ids:r.trick.ids,name:r.trick.ev.name,joker:r.trick.joker||null}:null,
- history:r.history,results:r.results,winner:r.winner};
+ history:r.history,results:r.results,winner:r.winner,winnerName:r.winnerName||null};
 }
 function begin(r){
  if(r.mode==='official'&&r.round===0)S.deal(r,shuffle);
@@ -93,6 +95,7 @@ function begin(r){
  r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*per,(i+1)*per),r.maxNum);p.ready=false;});
  const p=r.players.find(x=>x.hand.includes((3-1)*4+0));
  r.turn=p.seat;r.leader=p.seat;r.trick=null;r.passes=0;r.round++;r.stage='playing';r.results=null;r.winner=null;
+ r.winnerName=null;
  r.history=[r.players[r.turn].name+'님이 구름 3을 가져 선이 됐습니다.'];
  emitFx(r,'round',p.seat);touch(r);
 }
@@ -107,7 +110,7 @@ function finalizeRound(r){
  touch(r,r.round+'라운드 점수 정산 완료!');
 }
 function scoring(r,winner){
- r.winner=winner;emitFx(r,'win',winner);
+ r.winner=winner;r.winnerName=r.players[winner].name;emitFx(r,'win',winner);
  r.stage='settlement';
  if(r.mode==='official'){
   r.settleCards=[];r.settleEnds=Date.now()+30000;
@@ -188,7 +191,7 @@ function action(b){
   host();assert(r.stage==='roundEnd','라운드 종료 후에 가능합니다.');begin(r);
  }else if(b.type==='newMatch'){
   host();assert(r.stage==='matchEnd','최종 결과 화면에서 가능합니다.');
-  r.stage='lobby';r.round=0;r.trick=null;r.history=[];r.results=null;r.winner=null;r.settleCards=[];r.skipSeat=null;r.fairGame=false;
+  r.stage='lobby';r.round=0;r.trick=null;r.history=[];r.results=null;r.winner=null;r.winnerName=null;r.settleCards=[];r.skipSeat=null;r.fairGame=false;
   r.players.forEach(q=>{q.chips=64;q.hand=[];q.special=[];q.usedSpecial=false;q.settled=false;q.ready=!!q.isBot;});touch(r);
  }else if(b.type==='pass'){
   assert(r.stage==='playing'&&p.seat===r.turn,'내 차례에만 패스할 수 있어요.');
@@ -232,9 +235,37 @@ function action(b){
   if(hurry)p.lastHurryAt=now;
   emitFx(r,'emoji',p.seat,hurry?{emoji,targetSeat:r.turn}:{emoji});touch(r);
  }else if(b.type==='leave'){
-  assert(r.stage==='lobby','진행 중에는 나갈 수 없어요.');
-  r.players=r.players.filter(q=>q!==p);r.players.forEach((q,i)=>q.seat=i);const people=r.players.filter(x=>!x.isBot);if(r.hostToken===p.token&&people.length)r.hostToken=people[0].token;
-  if(!people.length)rooms.delete(r.code);else touch(r,p.name+'님이 나갔습니다.');
+  // Never change seats during a running game: trick ownership, turn, score, and
+  // private hands must continue to point at the same seat.
+  const remainingHumans=r.players.filter(q=>!q.isBot&&q.token!==p.token);
+  if(!remainingHumans.length){
+   stopRoomTimers(r);
+   rooms.delete(r.code);
+   for(const client of r.clients){try{client.end()}catch{}}
+   r.clients.clear();
+   return {left:true};
+  }
+  if(r.hostToken===p.token)r.hostToken=remainingHumans[0].token;
+  if(r.stage==='lobby'){
+   r.players=r.players.filter(q=>q!==p);
+   r.players.forEach((q,i)=>q.seat=i);
+  }else{
+   // Bot inherits the seat and all round/match state, but NOT the departed
+   // player's authentication token. It can play or settle for the old seat.
+   const bot=newBot(r);
+   bot.seat=p.seat;
+   bot.name='🤖 '+p.name.slice(0,10)+' 자리';
+   bot.hand=[...p.hand];bot.chips=p.chips;bot.special=[...(p.special||[])];
+   bot.usedSpecial=!!p.usedSpecial;bot.settled=!!p.settled;
+   bot.ready=true;
+   r.players[p.seat]=bot;
+   if(r.stage==='settlement'&&!bot.settled){
+    // Explicit exit forfeits any optional settlement card decision.
+    bot.settled=true;
+   }
+  }
+  touch(r,p.name+'님이 방을 나갔습니다.'+(r.stage==='lobby'?'':' 남은 자리는 봇이 이어받습니다.'));
+  if(r.stage==='settlement'&&r.players.every(q=>q.settled))finalizeRound(r);
   return {left:true};
  }else assert(false,'잘못된 요청입니다.');
  return publicState(r,p);
