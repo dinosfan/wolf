@@ -360,6 +360,24 @@ function captureDouble(){if(![1,2,3,5].includes(selected.size))return;doubleFirs
 function submitDouble(){if(!doubleFirst||selected.size!==doubleFirst.length)return;invoke('useSpecial',{card:'double',ids:doubleFirst,extraIds:[...selected]})}
 function cancelDouble(){doubleFirst=null;selected.clear();render()}
 
+function settlementScreen(){
+ const st=state.settlement||{},done=st.done?.[state.seat],seconds=Math.max(0,Math.ceil(((st.deadline||Date.now())-Date.now())/1000));
+ const maxLeft=Math.max(...state.players.map(p=>p.count));
+ const cards=(state.specialCards||[]).filter(c=>c.kind==='score'&&!state.usedSpecial&&!state.fairGame);
+ const allowed=cards.filter(c=>['winner','underdog'].includes(c.id)?
+   state.winner===state.seat:(c.id==='silver'&&state.players[state.seat].count===maxLeft&&maxLeft>0));
+ const special=allowed.length?allowed.map(c=>'<button type="button" class="special-card"'+(done?' disabled':'')+
+ ' onclick="invoke(\'settleCard\',{card:\''+c.id+'\'})"><strong>✨ '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):'<p class="muted">사용 가능한 정산용 특수카드가 없어요.</p>';
+ return head()+'<section class="panel special-panel"><span class="pill">정산 대기</span>'+
+ '<h1>🏁 '+html(state.players[state.winner].name)+'님 라운드 승리!</h1>'+
+ '<p>정산용 특수카드를 사용하거나 정산 확정을 누르세요. 모두 확정하거나 30초가 지나면 자동 정산됩니다.</p>'+
+ '<p class="muted">약 '+seconds+'초 남음 · '+(st.done||[]).filter(Boolean).length+'/'+state.size+'명 확정</p>'+
+ '<div class="special-grid">'+special+'</div>'+
+ (done?'<p class="success">내 선택 확정 · 다른 참가자를 기다리는 중</p>':
+ '<button class="full" onclick="invoke(\'settlePass\')">특수카드 없이 정산 확정</button>')+
+ '</section>'+playersList()+reactionBar();
+}
+
 function controls(){
  if(state.stage!=='playing')return'';
  const mine=state.turn===state.seat;
