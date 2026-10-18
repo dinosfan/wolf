@@ -185,7 +185,7 @@ const msg='<h2>렉시오 룰북 · 3~6인</h2>'+
  '<li>특수 스트레이트: 3인 6·7·8·9·1 / 4인 10·11·12·13·1 / 5·6인 12·13·14·15·1. 전체 최강은 1·2·3·4·5, 그다음은 2·3·4·5·6입니다.</li>'+
  '<li>패스해도 이후 턴에 다시 낼 수 있습니다. <b>나를 제외한 모든 사람이 연속 패스</b>하면 마지막에 낸 사람이 다시 선을 잡습니다.</li>'+
  '<li>누군가 패를 모두 내면 즉시 라운드가 종료됩니다. 남아 있는 숫자 2의 개수에 따라 남은 패의 페널티가 2배씩 커집니다.</li>'+
- '<li>모든 플레이어가 상대와 패 차이만큼 칩을 정산합니다. 기본 5라운드로 진행합니다.</li></ul>'+
+ '<li>모든 플레이어가 상대와 패 차이만큼 칩을 정산합니다. 방장이 대기실에서 3 또는 5라운드를 선택합니다.</li></ul>'+
  '<p class="muted">원작 공식 인원은 3~5명입니다. 6인 모드는 타일 60개를 10개씩 나눠 갖는 비공식 하우스룰입니다.</p>';
 popup(msg);
 }
@@ -213,21 +213,40 @@ async function invoke(type,extras={}){
   else{selected.clear();applyState(ret)}
  }catch(e){toast(e.message)}finally{pending=false}
 }
-async function create(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/create',{name:document.getElementById('newname').value,size:Number(document.getElementById('newsize').value)}))}catch(e){toast(e.message)}finally{pending=false}}
+async function create(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/create',{name:document.getElementById('newname').value}))}catch(e){toast(e.message)}finally{pending=false}}
 async function practice(){
  if(pending)return;
  pending=true;
  try{
   const name=document.getElementById('newname').value.trim()||'플레이어';
-  const size=Number(document.getElementById('newsize').value);
+  const size=4; // Quick practice begins with a fixed four-player match.
   store(await request('/api/create',{name,size,practice:true}));
  }catch(e){toast(e.message)}finally{pending=false}
 }
 async function join(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/join',{name:document.getElementById('joinname').value,code:document.getElementById('joincode').value}))}catch(e){toast(e.message)}finally{pending=false}}
 function welcome(){
  return head()+'<section class="intro"><span class="pill">☁ ★ ☾ ☀</span><h1>친구와 한 판,<br>렉시오</h1><p>각자 휴대폰으로 비밀 타일을 받고,<br>정면에서 친구와 심리전을 펼쳐 보세요.</p></section>'+
- '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><label for="newsize">플레이 인원</label><select class="field" id="newsize"><option value="3" selected>3명 · 12장씩</option><option value="4">4명 · 13장씩</option><option value="5">5명 · 12장씩</option><option value="6">6명 · 10장씩 (확장)</option></select><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">연습하기를 누르면 빈자리를 봇으로 채워서 바로 시작해요. 6인 모드는 비공식 확장 규칙이에요. 친구 대전은 봇 없이도 가능합니다.</p></section>'+
+ '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><p class="muted">방을 만든 뒤 대기실에서 인원, 기본/공식 확장, 3/5라운드를 설정해요.</p><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">혼자 연습은 기본판 4인(나 + 봇 3명)으로 시작해요. 6인 모드는 비공식 인원 하우스룰이에요.</p></section>'+
  '<section class="panel"><h2>친구 방에 참가</h2><form onsubmit="join(event)"><label for="joinname">내 닉네임</label><input class="field" id="joinname" maxlength="14" autocomplete="off" placeholder="이름 입력" required><label for="joincode">5자리 방 코드</label><input class="field" id="joincode" maxlength="5" autocomplete="off" placeholder="ABCDE" value="'+html(params.get('room')||'')+'" required><button class="alt full">참가</button></form></section>';
+}
+function roomSettings(){
+ const mode=state.mode||'basic',rounds=state.maxRounds||5;
+ const summary='<p class="muted">현재 설정: <b>'+state.size+'명 · '+(mode==='official'?'공식 특수카드 확장':'기본판')+' · '+rounds+'라운드</b></p>';
+ const note=mode==='official'?'<p class="setting-warning">⚠ 공식 확장판 18장 특수카드의 전체 효과와 사용 시점을 확인 중입니다. 현재는 선택을 저장할 수 있지만 확장 경기를 시작할 수 없어요.</p>':'';
+ if(!state.isHost)return '<section class="panel"><h2>⚙️ 경기 설정</h2>'+summary+note+'<p class="muted">방장만 설정을 변경할 수 있어요.</p></section>';
+ const sizes=[3,4,5,6].map(n=>'<option value="'+n+'"'+(state.size===n?' selected':'')+'>'+n+'명'+(n===6?' · 인원 하우스룰':'')+'</option>').join('');
+ return '<section class="panel room-settings"><h2>⚙️ 방장 경기 설정</h2><p class="muted">방 안에서 변경 가능합니다. 설정을 바꾸면 모두 다시 준비해야 해요.</p>'+
+ '<div class="room-setting-grid">'+
+ '<label for="roomsize">플레이 인원<select class="field" id="roomsize">'+sizes+'</select></label>'+
+ '<label for="roommode">게임 규칙<select class="field" id="roommode"><option value="basic"'+(mode==='basic'?' selected':'')+'>기본판</option><option value="official"'+(mode==='official'?' selected':'')+'>공식 특수카드 확장 (준비 중)</option></select></label>'+
+ '<label for="roomrounds">경기 길이<select class="field" id="roomrounds"><option value="3"'+(rounds===3?' selected':'')+'>3라운드</option><option value="5"'+(rounds===5?' selected':'')+'>5라운드</option></select></label>'+
+ '</div><button type="button" class="alt full" onclick="saveRoomSettings()">설정 적용</button>'+summary+note+'</section>';
+}
+function saveRoomSettings(){
+ const size=Number(document.getElementById('roomsize')?.value);
+ const mode=document.getElementById('roommode')?.value;
+ const maxRounds=Number(document.getElementById('roomrounds')?.value);
+ invoke('configure',{size,mode,maxRounds});
 }
 function lobby(){
  const names=state.players.map((p,i)=>'<div class="person"><h3>'+html(p.name)+(state.seat===p.seat?' (나)':'')+(p.isBot?'<span class="bot-badge">BOT</span>':'')+'</h3><p>자리 '+(i+1)+' · '+(p.ready?'준비 완료 ✅':'준비 대기 ⏳')+'</p>'+(p.isBot&&state.isHost?'<button type="button" class="mini alt bot-remove" onclick="invoke(\'removeBot\',{seat:'+p.seat+'})">봇 제거</button>':'')+'</div>').join('');
@@ -235,10 +254,10 @@ function lobby(){
  const bots=state.players.filter(p=>p.isBot).length;
  const canAdd=state.isHost&&state.players.length<state.size;
  const actions=state.isHost?'<div class="bot-controls"><button type="button" class="alt full" onclick="invoke(\'addBot\')" '+(canAdd?'':'disabled')+'>🤖 봇 1명 추가</button><button type="button" class="alt full" onclick="invoke(\'fillBots\')" '+(canAdd?'':'disabled')+'>🤖 빈자리 전부 봇으로 채우기</button></div>':'';
- return head()+'<section class="panel"><span class="pill">대기실 · '+state.players.length+'/'+state.size+'명</span><div class="invite">'+html(state.code)+'</div><button class="alt full" onclick="copyInvite()">친구에게 초대 주소 복사 ↗</button><p class="muted">설정한 '+state.size+'명이 입장한 뒤 모두 준비 버튼을 누르세요. 봇은 자동으로 준비됩니다.</p></section>'+
- '<h2>참가자 <small>봇 '+bots+'명</small></h2><div class="players" data-size="'+state.size+'">'+names+slots+'</div>'+
+ return head()+'<section class="panel"><span class="pill">대기실 · '+state.players.length+'/'+state.size+'명</span><div class="invite">'+html(state.code)+'</div><button class="alt full" onclick="copyInvite()">친구에게 초대 주소 복사 ↗</button><p class="muted">설정된 '+state.size+'명이 입장한 뒤 모두 준비 버튼을 누르세요. 봇은 자동으로 준비됩니다.</p></section>'+
+ roomSettings()+'<h2>참가자 <small>봇 '+bots+'명</small></h2><div class="players" data-size="'+state.size+'">'+names+slots+'</div>'+
  '<section class="panel">'+actions+'<p>나의 자리: '+(state.seat+1)+'번</p><button class="full" onclick="invoke(\'ready\',{ready:'+(!state.players[state.seat].ready)+'})">'+(state.players[state.seat].ready?'준비 취소':'준비 완료')+'</button>'+
- (state.isHost?'<button class="alt full" onclick="invoke(\'shuffle\')">자리 순서 섞기</button><button class="full" '+(state.players.length===state.size&&state.players.every(p=>p.ready)?'':'disabled')+' onclick="invoke(\'start\')">게임 시작하기</button>':'<p class="muted">방장이 게임을 시작합니다.</p>')+
+ (state.isHost?'<button class="alt full" onclick="invoke(\'shuffle\')">자리 순서 섞기</button><button class="full" '+(state.mode==='basic'&&state.players.length===state.size&&state.players.every(p=>p.ready)?'':'disabled')+' onclick="invoke(\'start\')">게임 시작하기</button>':'<p class="muted">방장이 게임을 시작합니다.</p>')+
  '<button class="danger full" onclick="leaveRoom()">방 나가기</button></section>';
 }
 function playersList(){
@@ -299,9 +318,9 @@ function result(){
  (isEnd?'<h2 style="margin-top:18px">🏆 최종 순위</h2><ol class="recent">'+sorted.map(p=>'<li>'+html(p.name)+' · '+p.chips+'점</li>').join('')+'</ol><p class="success">최종 우승: '+html(sorted[0]?.name)+'님!</p>'+
  (state.isHost?'<button class="full" onclick="invoke(\'newMatch\')">새 경기 시작</button>':'<p class="muted">방장이 다음 경기를 준비할 수 있어요.</p>'):
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
- '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. 5라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
+ '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. '+state.maxRounds+'라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
-function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · '+(state.mode==='official'?'공식 확장':'기본')+' · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+controls()+historyList():result())+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
 function leaveRoom(){if(confirm('정말 방을 나갈까요?'))invoke('leave')}
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
