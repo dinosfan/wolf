@@ -206,3 +206,8 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
  .header-actions .ranking-trigger{font-size:10px}
  .header-actions .exit-quick{font-size:10px}
 }
+
+/* v2.3 - make score card reservation clearly distinct from an inactive action. */
+.special-armed{background:linear-gradient(140deg,#405b39,#1c433b)!important;border:2px solid #abd993!important;box-shadow:0 0 0 2px #abd9932d,0 4px 14px #0005}
+.special-armed strong{color:#ecffcf}
+.special-armed small{color:#c5f4cb}
