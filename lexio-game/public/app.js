@@ -140,7 +140,7 @@ function reactionBar(){
  '<button type="button" class="mini alt" onclick="toggleVibration()" aria-label="진동 '+(vibrateEnabled?'끄기':'켜기')+'">'+(vibrateEnabled?'📳 진동 ON':'📴 진동 OFF')+'</button></div></div>'+
  '<div class="emoji-buttons">'+buttons+'</div></section>';
 }
-function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~6인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button></div></header>'}
+function head(){return '<header class="bar"><div class="brand"><i>✦</i> LEXIO <small>· '+(state?state.size+'인 대전':'3~6인 대전')+'</small></div><div class="header-actions"><button type="button" class="mini ranking-trigger" onclick="showRanking()">🏆 족보표</button><button type="button" class="mini alt" onclick="showRules()">규칙</button>'+(state?'<button type="button" class="mini danger exit-quick" onclick="leaveRoom()">🚪 나가기</button>':'')+'</div></header>'}
 function popup(markup){overlay.innerHTML='<div class="dialog">'+markup+'<button class="alt full" onclick="closeOverlay()">닫기</button></div>';overlay.hidden=false}
 function closeOverlay(){overlay.hidden=true;overlay.innerHTML=''}
 function rankTile(n,suit){
@@ -209,7 +209,7 @@ async function invoke(type,extras={}){
  if(pending||!session)return;pending=true;
  try{
   const ret=await request('/api/action',{...session,type,...extras});
-  if(ret.left){localStorage.removeItem(K);session=null;state=null;fxRoom=null;visualFx=[];lastFxSeq=null;selected.clear();events?.close();history.replaceState(null,'','/');render();}
+  if(ret.left){localStorage.removeItem(K);session=null;state=null;fxRoom=null;visualFx=[];lastFxSeq=null;selected.clear();doubleFirst=null;events?.close();events=null;closeOverlay();clearTurnAnnouncement();history.replaceState(null,'','/');render();}
   else{selected.clear();doubleFirst=null;applyState(ret)}
  }catch(e){toast(e.message)}finally{pending=false}
 }
@@ -258,7 +258,7 @@ function lobby(){
  roomSettings()+'<h2>참가자 <small>봇 '+bots+'명</small></h2><div class="players" data-size="'+state.size+'">'+names+slots+'</div>'+
  '<section class="panel">'+actions+'<p>나의 자리: '+(state.seat+1)+'번</p><button class="full" onclick="invoke(\'ready\',{ready:'+(!state.players[state.seat].ready)+'})">'+(state.players[state.seat].ready?'준비 취소':'준비 완료')+'</button>'+
  (state.isHost?'<button class="alt full" onclick="invoke(\'shuffle\')">자리 순서 섞기</button><button class="full" '+((state.mode==='basic'||state.size<=5)&&state.players.length===state.size&&state.players.every(p=>p.ready)?'':'disabled')+' onclick="invoke(\'start\')">게임 시작하기</button>':'<p class="muted">방장이 게임을 시작합니다.</p>')+
- '<button class="danger full" onclick="leaveRoom()">방 나가기</button></section>';
+ '</section>';
 }
 function playersList(){
  return '<div class="players" data-size="'+state.size+'">'+state.players.map(p=>{
@@ -369,7 +369,7 @@ function settlementScreen(){
  const special=allowed.length?allowed.map(c=>'<button type="button" class="special-card"'+(done?' disabled':'')+
  ' onclick="invoke(\'settleCard\',{card:\''+c.id+'\'})"><strong>✨ '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):'<p class="muted">사용 가능한 정산용 특수카드가 없어요.</p>';
  return head()+'<section class="panel special-panel"><span class="pill">정산 대기</span>'+
- '<h1>🏁 '+html(state.players[state.winner].name)+'님 라운드 승리!</h1>'+
+ '<h1>🏁 '+html(state.winnerName||state.players[state.winner].name)+'님 라운드 승리!</h1>'+
  '<p>정산용 특수카드를 사용하거나 정산 확정을 누르세요. 모두 확정하거나 30초가 지나면 자동 정산됩니다.</p>'+
  '<p class="muted">약 '+seconds+'초 남음 · '+(st.done||[]).filter(Boolean).length+'/'+state.size+'명 확정</p>'+
  '<div class="special-grid">'+special+'</div>'+
@@ -398,16 +398,23 @@ function result(){
  const celebration=winningFx?'<div class="win-celebration" aria-hidden="true">'+Array.from({length:16},(_,i)=>'<span style="--offset:'+(i-8)*19+'px;--drop:'+(108+i*7)+'px;--delay:'+(i*38)+'ms">✦</span>').join('')+'</div>':'';
  const summary=state.results||[];
  const sorted=[...summary].sort((a,b)=>b.chips-a.chips);
- return head()+celebration+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
+ return head()+celebration+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.winnerName||state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
  '<div class="summary">'+summary.map(p=>'<div class="sum"><b>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(state.players[p.seat].isBot?' 🤖':'')+'</b><p class="muted">잔여 '+p.left+'장'+(p.twos?' · 2 ×'+p.twos:'')+'<br>환산 '+p.effective+'장</p><p class="'+(p.delta<0?'neg':'pos')+'">'+(p.delta>0?'+':'')+p.delta+'점</p><p><strong>누적 '+p.chips+'점</strong></p></div>').join('')+'</div>'+
  (isEnd?'<h2 style="margin-top:18px">🏆 최종 순위</h2><ol class="recent">'+sorted.map(p=>'<li>'+html(p.name)+' · '+p.chips+'점</li>').join('')+'</ol><p class="success">최종 우승: '+html(sorted[0]?.name)+'님!</p>'+
  (state.isHost?'<button class="full" onclick="invoke(\'newMatch\')">새 경기 시작</button>':'<p class="muted">방장이 다음 경기를 준비할 수 있어요.</p>'):
  (state.isHost?'<button class="full" onclick="invoke(\'nextRound\')">다음 라운드 · '+(state.round+1)+' / '+state.maxRounds+'</button>':'<p class="muted">방장이 다음 라운드를 시작하면 새 패가 배분됩니다.</p>'))+'</div>'+
  '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. '+state.maxRounds+'라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
-function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='settlement'?settlementScreen():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · '+(state.mode==='official'?'공식 확장':'기본')+' · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+specialButtons()+doubleActions()+controls()+historyList():result())+'</div>'}
+function roomExitFooter(){return state?'<section class="exit-footer"><button type="button" class="danger full" onclick="leaveRoom()">🚪 방 나가기</button><p>퇴장하면 이 기기에서 방이 닫힙니다.</p></section>':''}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='settlement'?settlementScreen():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · '+(state.mode==='official'?'공식 확장':'기본')+' · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+specialButtons()+doubleActions()+controls()+historyList():result())+roomExitFooter()+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
-function leaveRoom(){if(confirm('정말 방을 나갈까요?'))invoke('leave')}
+function leaveRoom(){
+ if(!state||!session||pending)return;
+ const alone=state.players.filter(p=>!p.isBot).length===1;
+ const active=state.stage!=='lobby';
+ const message=alone?'마지막 사람인 내가 나가면 방이 종료돼요. 정말 나갈까요?':active?'지금 나가면 내 자리는 봇이 이어받고 다른 사람들은 계속 플레이해요. 이 방에는 다시 들어올 수 없어요. 나갈까요?':'정말 방을 나갈까요?';
+ if(confirm(message))invoke('leave');
+}
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
 boot();setInterval(()=>{if(session&&!document.hidden)refresh()},8000);document.addEventListener('visibilitychange',()=>{
  if(!document.hidden)refresh();
