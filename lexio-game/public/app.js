@@ -368,17 +368,26 @@ function cancelDouble(){doubleFirst=null;selected.clear();render()}
 function settlementScreen(){
  const st=state.settlement||{},done=st.done?.[state.seat],seconds=Math.max(0,Math.ceil(((st.deadline||Date.now())-Date.now())/1000));
  const maxLeft=Math.max(...state.players.map(p=>p.count));
- const cards=(state.specialCards||[]).filter(c=>c.kind==='score'&&!state.usedSpecial&&!state.fairGame);
+ const owned=(state.specialCards||[]).filter(c=>c.kind==='score');
+ const cards=owned.filter(c=>!state.usedSpecial&&!state.fairGame);
  const allowed=cards.filter(c=>['winner','underdog'].includes(c.id)?
    state.winner===state.seat:(c.id==='silver'&&state.players[state.seat].count===maxLeft&&maxLeft>0));
+ const names={winner:'승자 독식',underdog:'하극상',silver:'실버 라이닝'};
+ const explanation=state.lastSettlementCard?'✅ '+(names[state.lastSettlementCard]||'정산 카드')+' 발동 완료!':
+   state.fairGame?'⚖️ 공정한 게임 효과로 특수카드를 사용할 수 없어요.':
+   state.usedSpecial?'이번 라운드에는 이미 다른 특수카드를 사용했어요.':
+   owned.some(c=>['winner','underdog'].includes(c.id))&&state.winner!==state.seat?
+    '하극상·승자 독식은 패를 가장 먼저 모두 낸 라운드 승자만 사용할 수 있어요. 누적 점수 1등과는 달라요.':
+   owned.length===0?'정산용 특수카드가 없어요.':'사용 조건에 맞는 정산용 카드가 없어요.';
  const special=allowed.length?allowed.map(c=>'<button type="button" class="special-card"'+(done?' disabled':'')+
- ' onclick="invoke(\'settleCard\',{card:\''+c.id+'\'})"><strong>✨ '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):'<p class="muted">사용 가능한 정산용 특수카드가 없어요.</p>';
- return head()+'<section class="panel special-panel"><span class="pill">정산 대기</span>'+
+ ' onclick="invoke(\'settleCard\',{card:\''+c.id+'\'})"><strong>🏆 '+html(c.name)+'</strong><small>'+html(c.desc)+'</small></button>').join(''):
+ '<p class="muted">'+html(explanation)+'</p>';
+ return head()+'<section class="panel special-panel"><span class="pill">🏆 라운드 승자 확정 · 점수 정산</span>'+
  '<h1>🏁 '+html(state.winnerName||state.players[state.winner].name)+'님 라운드 승리!</h1>'+
- '<p>정산용 특수카드를 사용하거나 정산 확정을 누르세요. 모두 확정하거나 30초가 지나면 자동 정산됩니다.</p>'+
- '<p class="muted">약 '+seconds+'초 남음 · '+(st.done||[]).filter(Boolean).length+'/'+state.size+'명 확정</p>'+
+ '<p><strong>지금이 정산용 카드 사용 시점!</strong> 하극상·승자 독식·실버 라이닝을 사용하거나 정산을 확정해요. 미리 예약했다면 조건에 맞을 때 자동으로 발동합니다.</p>'+
+ '<p class="muted">약 '+seconds+'초 남음 · '+(st.done||[]).filter(Boolean).length+'/'+state.size+'명 확정 · 모두 확정하면 즉시 다음 화면으로 이동해요.</p>'+
  '<div class="special-grid">'+special+'</div>'+
- (done?'<p class="success">내 선택 확정 · 다른 참가자를 기다리는 중</p>':
+ (done?'<p class="success">정산 확정 완료 · 다른 참가자를 기다리는 중</p>':
  '<button class="full" onclick="invoke(\'settlePass\')">특수카드 없이 정산 확정</button>')+
  '</section>'+playersList();
 }
@@ -404,6 +413,7 @@ function result(){
  const summary=state.results||[];
  const sorted=[...summary].sort((a,b)=>b.chips-a.chips);
  return head()+celebration+'<div class="panel"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드 완료</span><h1>🎉 '+html(state.winnerName||state.players[state.winner].name)+'님 승리!</h1><p>남은 타일과 숫자 2의 페널티를 반영해서 칩을 정산했어요.</p>'+
+ (state.lastSettlementCard?'<p class="success">🏆 정산 카드 발동 완료: '+html(({winner:'승자 독식',underdog:'하극상',silver:'실버 라이닝'})[state.lastSettlementCard]||state.lastSettlementCard)+'</p>':'')+
  '<div class="summary">'+summary.map(p=>'<div class="sum"><b>'+html(p.name)+(p.seat===state.seat?' · 나':'')+(state.players[p.seat].isBot?' 🤖':'')+'</b><p class="muted">잔여 '+p.left+'장'+(p.twos?' · 2 ×'+p.twos:'')+'<br>환산 '+p.effective+'장</p><p class="'+(p.delta<0?'neg':'pos')+'">'+(p.delta>0?'+':'')+p.delta+'점</p><p><strong>누적 '+p.chips+'점</strong></p></div>').join('')+'</div>'+
  (isEnd?'<h2 style="margin-top:18px">🏆 최종 순위</h2><ol class="recent">'+sorted.map(p=>'<li>'+html(p.name)+' · '+p.chips+'점</li>').join('')+'</ol><p class="success">최종 우승: '+html(sorted[0]?.name)+'님!</p>'+
  (state.isHost?'<button class="full" onclick="invoke(\'newMatch\')">새 경기 시작</button>':'<p class="muted">방장이 다음 경기를 준비할 수 있어요.</p>'):
