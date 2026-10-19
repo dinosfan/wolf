@@ -1,6 +1,7 @@
 'use strict';
 const GAMES=[
- {id:'mound-vs-plate',title:'마운드 VS 타석',short:'한 구 승부에서 상대의 수를 읽어라!',desc:'투수는 구종과 코스를 선택하고 타자는 궤적을 보고 스윙! 1·3이닝 친구 대전과 봇 연습이 가능한 야구 심리전.',url:'https://mound-vs-plate-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','야구','심리전','봇'],theme:'night',emoji:'⚾',motif:'🏟️',stamp:'NEW'},
+ {id:'beontteuk',title:'번뜩!',short:'같은 기호가 보이면 먼저 외쳐!',desc:'한자리에 모인 친구들이 각자 휴대폰으로 카드를 공개하고, 같은 기호가 뜨면 상대 카드의 주제에 맞는 말을 먼저 외쳐 승리하는 순발력 파티게임.',url:'https://beontteuk-party-2026.onrender.com',min:3,max:8,category:'board',tags:['순발력','파티','단어','실시간'],theme:'yellow',emoji:'⚡',motif:'💬',stamp:'NEW'},
+  {id:'mound-vs-plate',title:'마운드 VS 타석',short:'한 구 승부에서 상대의 수를 읽어라!',desc:'투수는 구종과 코스를 선택하고 타자는 궤적을 보고 스윙! 1·3이닝 친구 대전과 봇 연습이 가능한 야구 심리전.',url:'https://mound-vs-plate-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','야구','심리전','봇'],theme:'night',emoji:'⚾',motif:'🏟️',stamp:'NEW'},
  {id:'battleline',title:'배틀라인',short:'아홉 전선에서 벌어지는 전략 대결!',desc:'9개의 깃발을 놓고 카드 조합으로 맞붙는 2인 온라인 게임. 기본 병력전과 전술전 중 선택해서 플레이!',url:'https://battleline-mobile-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','전략','카드','전술'],theme:'dawn',emoji:'⚔️',motif:'🚩',stamp:'NEW'},
  {"id":"nine-dragons","title":"구룡투","short":"1대1 전략 승부!","desc":"친구와 머리를 맞대고 겨루는 2인 전략 대결 게임. 누가 더 영리하게 승부할까?","url":"https://nine-dragons-duel.aglowpin8.chatgpt.site","min":2,"max":2,"category":"board","tags":["2인 전용","전략","대결"],"theme":"dawn","emoji":"🐉","motif":"⚔️","stamp":"NEW"},
  {"id":"indian-poker","title":"인디언 포커","short":"상대 숫자만 보고 블러핑!","desc":"상대에게 보이는 카드를 읽고 베팅과 심리전으로 승부하는 2인 카드게임.","url":"https://indian-poker-duel.aglowpin8.chatgpt.site","min":2,"max":2,"category":"mystery","tags":["2인 전용","카드","블러핑"],"theme":"peach","emoji":"🃏","motif":"🪙","stamp":"NEW"},
