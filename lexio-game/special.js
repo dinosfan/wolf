@@ -1,15 +1,15 @@
 'use strict';
 /*
  * New Lexio: independently confirmed card effects from Lexio Japan official posts.
- * A tenth Changer exists in the commercial set, but its text was not verified:
- * it is intentionally NOT represented or dealt. This is a disclosed 17-card
- * playable variant rather than a false claim of exact 18-card parity.
+ * Complete 18-card digital adaptation: 10 Changers + 8 Jokers.
+ * New Beginning is usable in the first 3 seconds after the initial deal.
  * The exact digital timing of non-turn Changers and simultaneous settlements
  * is specified below as a transparent online adaptation.
  * References in IMPLEMENTATION_STATUS.md.
  */
 const R=require('./rules');
 const CHANGERS=[
+ ['newBeginning','새로운 시작','첫 라운드 패 분배 직후 3초 안에 사용하면 모든 플레이어의 타일을 다시 섞어 배분합니다.','opening'],
  ['winner','승자 독식','라운드 1등이면 다른 사람이 받을 점수까지 모두 받습니다.','score'],
  ['silver','실버 라이닝','최하위일 때 각 상대에게 내는 점수를 최대 1점으로 줄입니다.','score'],
  ['underdog','하극상','내가 1등이면 2등과 꼴찌의 남은 패 환산 개수를 맞바꿉니다.','score'],
