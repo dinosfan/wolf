@@ -95,6 +95,25 @@ function turnRibbon(){
  '<span class="turn-ribbon-icon">⏳</span><span><strong>'+html(state.players[state.turn].name)+'님 차례</strong><small>잠시 기다려줘</small></span>')+
  '</div>';
 }
+function secondsLeft(deadline){return Math.max(0,Math.ceil((Number(deadline||0)-Date.now())/1000));}
+function updateTimers(){
+ document.querySelectorAll('[data-game-clock]').forEach(node=>{
+  const remain=secondsLeft(node.dataset.deadline);
+  node.textContent=remain+'초';node.classList.toggle('clock-urgent',remain<=10);
+ });
+}
+function timerBar(){
+ if(!state||state.stage!=='playing'||!state.timed)return '';
+ return '<div class="game-clock-bar" role="timer"><span>⏱ 60초 제한 · '+html(state.players[state.turn].name)+'님</span><strong data-game-clock="turn" data-deadline="'+Number(state.turnDeadline||0)+'">'+secondsLeft(state.turnDeadline)+'초</strong></div>';
+}
+function openingScreen(){
+ const owns=(state.specialCards||[]).some(c=>c.id==='newBeginning')&&!state.usedSpecial;
+ return head()+'<section class="panel opening-panel"><span class="pill">🎴 공식 확장 · 첫 라운드</span><h2>패 확인 · 새로운 시작</h2>'+
+ '<div class="opening-countdown" data-game-clock="opening" data-deadline="'+Number(state.openingDeadline||0)+'">'+secondsLeft(state.openingDeadline)+'초</div>'+
+ (owns?'<p>새로운 시작 카드가 있어요! 3초 안에 누르면 <b>모든 플레이어의 타일을 다시 분배</b>합니다.</p><button type="button" class="full" onclick="invoke(\'useSpecial\',{card:\'newBeginning\'})">🔄 새로운 시작 사용 · 전체 재분배</button>':
+ '<p class="muted">새로운 시작 사용 여부를 기다리고 있어요. 곧 첫 차례가 시작됩니다.</p>')+
+ '</section>'+playersList()+hand();
+}
 function applyState(next){
  const previous=state,newRoom=fxRoom!==next.code;
  if(newRoom){
@@ -119,7 +138,7 @@ function applyState(next){
    previous.turn!==next.turn||previous.seat!==next.seat);
  if(turned){vibrateTurn();playSfx('turn');showTurnAnnouncement()}
  else if(!myTurn)clearTurnAnnouncement();
- render();cleanupEffects();
+ render();updateTimers();cleanupEffects();
 }
 async function sendReaction(emoji){
  if(!session||!state||!['playing','roundEnd','matchEnd'].includes(state.stage)||!REACTION_EMOJI.includes(emoji)||reactionBusy||pending)return;
@@ -187,7 +206,7 @@ const msg='<h2>렉시오 룰북 · 3~6인</h2>'+
  '<li>누군가 패를 모두 내면 즉시 라운드가 종료됩니다. 남아 있는 숫자 2의 개수에 따라 남은 패의 페널티가 2배씩 커집니다.</li>'+
  '<li>모든 플레이어가 상대와 패 차이만큼 칩을 정산합니다. 방장이 대기실에서 3 또는 5라운드를 선택합니다.</li></ul>'+
  '<p class="muted">원작 공식 인원은 3~5명입니다. 6인 모드는 타일 60개를 10개씩 나눠 갖는 비공식 하우스룰입니다.</p>';
-popup(msg+(state?.mode==='official'?'<h3>🎴 특수카드 확장 · 규칙 확인판</h3><p>게임 시작 시 특수카드 3장을 받고, 1라운드에 최대 한 장만 사용해요. 공식 효과가 확인된 체인저 9종과 조커 8장으로 플레이하며, 미확인 체인저 1장은 제외됐어요. 행동 카드는 자기 차례에, 점수 카드는 30초 정산 때 사용할 수 있도록 온라인 규칙을 적용했어요. 확장 모드는 3~5인만 지원해요.</p>':'') );
+popup(msg+(state?.mode==='official'?'<h3>🎴 특수카드 확장 · 규칙 확인판</h3><p>게임 시작 시 특수카드 3장을 받고, 1라운드에 최대 한 장만 사용해요. 체인저 10종과 조커 8장, 총 18장으로 플레이해요. 새로운 시작 카드는 첫 패 분배 후 3초 안에 사용할 수 있어요. 행동 카드는 자기 차례에, 점수 카드는 라운드 종료 정산 때 사용할 수 있도록 온라인 규칙을 적용했어요. 확장 모드는 3~5인만 지원해요.</p>':'') );
 }
 async function request(url,body){
  const options=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
@@ -226,27 +245,28 @@ async function practice(){
 async function join(e){e.preventDefault();if(pending)return;pending=true;try{store(await request('/api/join',{name:document.getElementById('joinname').value,code:document.getElementById('joincode').value}))}catch(e){toast(e.message)}finally{pending=false}}
 function welcome(){
  return head()+'<section class="intro"><span class="pill">☁ ★ ☾ ☀</span><h1>친구와 한 판,<br>렉시오</h1><p>각자 휴대폰으로 비밀 타일을 받고,<br>정면에서 친구와 심리전을 펼쳐 보세요.</p></section>'+
- '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><p class="muted">방을 만든 뒤 대기실에서 인원, 기본/공식 확장, 3/5라운드를 설정해요.</p><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">혼자 연습은 기본판 4인(나 + 봇 3명)으로 시작해요. 6인 모드는 비공식 인원 하우스룰이에요.</p></section>'+
+ '<section class="panel"><h2>새 게임 방 만들기</h2><form onsubmit="create(event)"><label for="newname">내 닉네임</label><input class="field" id="newname" maxlength="14" autocomplete="off" placeholder="이름 입력 (연습은 생략 가능)"><p class="muted">방을 만든 뒤 대기실에서 인원, 기본/확장, 3/5라운드, 60초 타이머를 설정해요.</p><button class="full" type="submit">친구들과 방 만들기</button><button type="button" class="alt full practice-start" onclick="practice()">🤖 혼자 바로 연습하기</button></form><p class="muted">혼자 연습은 기본판 4인(나 + 봇 3명)으로 시작해요. 6인 모드는 비공식 인원 하우스룰이에요.</p></section>'+
  '<section class="panel"><h2>친구 방에 참가</h2><form onsubmit="join(event)"><label for="joinname">내 닉네임</label><input class="field" id="joinname" maxlength="14" autocomplete="off" placeholder="이름 입력" required><label for="joincode">5자리 방 코드</label><input class="field" id="joincode" maxlength="5" autocomplete="off" placeholder="ABCDE" value="'+html(params.get('room')||'')+'" required><button class="alt full">참가</button></form></section>';
 }
 function roomSettings(){
- const mode=state.mode||'basic',rounds=state.maxRounds||5;
- const summary='<p class="muted">현재 설정: <b>'+state.size+'명 · '+(mode==='official'?'공식 특수카드 확장':'기본판')+' · '+rounds+'라운드</b></p>';
- const note=mode==='official'?'<p class="setting-warning">ℹ️ 공식에서 효과를 확인한 특수카드 17장을 사용하는 온라인 확인판이에요. 미확인 체인저 1종은 제외했으며, 일부 사용 시간·정산은 온라인 처리 규칙입니다. 3~5인만 지원해요.</p>':'';
+ const mode=state.mode||'basic',rounds=state.maxRounds||5,timed=!!state.timed;
+ const summary='<p class="muted">현재 설정: <b>'+state.size+'명 · '+(mode==='official'?'공식 특수카드 확장':'기본판')+' · '+rounds+'라운드 · '+(timed?'⏱ 60초 타이머':'시간 제한 없음')+'</b></p>';
+ const note=mode==='official'?'<p class="setting-warning">ℹ️ 체인저 10종과 조커 8장, 총 18장을 사용해요. 새로운 시작은 첫 패 분배 후 3초만 사용 가능하며 일부 정산은 온라인 처리 규칙입니다. 3~5인만 지원해요.</p>':'';
  if(!state.isHost)return '<section class="panel"><h2>⚙️ 경기 설정</h2>'+summary+note+'<p class="muted">방장만 설정을 변경할 수 있어요.</p></section>';
  const sizes=[3,4,5,6].map(n=>'<option value="'+n+'"'+(state.size===n?' selected':'')+'>'+n+'명'+(n===6?' · 인원 하우스룰':'')+'</option>').join('');
  return '<section class="panel room-settings"><h2>⚙️ 방장 경기 설정</h2><p class="muted">방 안에서 변경 가능합니다. 설정을 바꾸면 모두 다시 준비해야 해요.</p>'+
  '<div class="room-setting-grid">'+
  '<label for="roomsize">플레이 인원<select class="field" id="roomsize">'+sizes+'</select></label>'+
- '<label for="roommode">게임 규칙<select class="field" id="roommode"><option value="basic"'+(mode==='basic'?' selected':'')+'>기본판</option><option value="official"'+(mode==='official'?' selected':'')+'>공식 특수카드 확장 (17장 확인판)</option></select></label>'+
+ '<label for="roommode">게임 규칙<select class="field" id="roommode"><option value="basic"'+(mode==='basic'?' selected':'')+'>기본판</option><option value="official"'+(mode==='official'?' selected':'')+'>공식 특수카드 확장 (18장)</option></select></label>'+
  '<label for="roomrounds">경기 길이<select class="field" id="roomrounds"><option value="3"'+(rounds===3?' selected':'')+'>3라운드</option><option value="5"'+(rounds===5?' selected':'')+'>5라운드</option></select></label>'+
- '</div><button type="button" class="alt full" onclick="saveRoomSettings()">설정 적용</button>'+summary+note+'</section>';
+ '<label for="roomtimer">턴 시간 제한<select class="field" id="roomtimer"><option value="off"'+(!timed?' selected':'')+'>일반 · 제한 없음</option><option value="on"'+(timed?' selected':'')+'>타이머 · 60초 초과 자동 패스</option></select></label></div><button type="button" class="alt full" onclick="saveRoomSettings()">설정 적용</button>'+summary+note+'</section>';
 }
 function saveRoomSettings(){
  const size=Number(document.getElementById('roomsize')?.value);
  const mode=document.getElementById('roommode')?.value;
  const maxRounds=Number(document.getElementById('roomrounds')?.value);
- invoke('configure',{size,mode,maxRounds});
+ const timed=document.getElementById('roomtimer')?.value==='on';
+ invoke('configure',{size,mode,maxRounds,timed});
 }
 function lobby(){
  const names=state.players.map((p,i)=>'<div class="person"><h3>'+html(p.name)+(state.seat===p.seat?' (나)':'')+(p.isBot?'<span class="bot-badge">BOT</span>':'')+'</h3><p>자리 '+(i+1)+' · '+(p.ready?'준비 완료 ✅':'준비 대기 ⏳')+'</p>'+(p.isBot&&state.isHost?'<button type="button" class="mini alt bot-remove" onclick="invoke(\'removeBot\',{seat:'+p.seat+'})">봇 제거</button>':'')+'</div>').join('');
@@ -300,8 +320,8 @@ function specialButtons(){
  const cards=state.specialCards||[];
  const body=cards.length?cards.map(c=>{
    const score=c.kind==='score',armed=score&&state.armedScore===c.id;
-   const usable=free&&(score||mine);
-   const hint=score?(armed?'✅ 사용 예약됨 · 다시 누르면 해제':'미리 예약하기 · 조건을 만족하면 라운드 종료 시 자동 발동'):c.desc;
+   const usable=free&&c.kind!=='opening'&&(score||mine);
+   const hint=c.kind==='opening'?'첫 패 분배 직후 3초만 사용 가능 · 기한 만료':score?(armed?'✅ 사용 예약됨 · 다시 누르면 해제':'미리 예약하기 · 조건을 만족하면 라운드 종료 시 자동 발동'):c.desc;
    return '<button type="button" class="special-card'+(armed?' special-armed':'')+'"'+(!usable?' disabled':'')+
     ' onclick="openSpecial(\''+c.id+'\')" title="'+html(c.desc)+'">'+
     '<strong>'+(score?'🏆':c.kind==='joker'?'🃏':'✨')+' '+html(c.name)+(armed?' · 예약됨':'')+'</strong><small>'+html(hint)+'</small></button>';
@@ -421,7 +441,7 @@ function result(){
  '<details class="panel"><summary>정산 기준과 규칙</summary><p class="muted">각자 남은 타일 수에 남은 숫자 2 하나당 ×2를 적용하고, 다른 모든 플레이어와 비교한 차이만큼 칩을 주고받습니다. '+state.maxRounds+'라운드 또는 파산 시 경기가 끝납니다.</p></details>'+reactionBar();
 }
 function roomExitFooter(){return state?'<section class="exit-footer"><button type="button" class="danger full" onclick="leaveRoom()">🚪 방 나가기</button><p>퇴장하면 이 기기에서 방이 닫힙니다.</p></section>':''}
-function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='settlement'?settlementScreen():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · '+(state.mode==='official'?'공식 확장':'기본')+' · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+playersList()+center()+reactionBar()+hand()+specialButtons()+doubleActions()+controls()+historyList():result())+roomExitFooter()+'</div>'}
+function render(){el.innerHTML='<div class="wrap'+(state?.stage==='playing'&&state.turn===state.seat?' its-my-turn':'')+'">'+(!state?welcome():state.stage==='lobby'?lobby():state.stage==='opening'?openingScreen():state.stage==='settlement'?settlementScreen():state.stage==='playing'?head()+'<div class="menu"><span class="pill">'+state.round+' / '+state.maxRounds+' 라운드</span><span class="pill">'+state.size+'인 · '+(state.mode==='official'?'공식 확장':'기본')+' · 방 '+html(state.code)+'</span><button class="mini alt" onclick="copyInvite()">초대</button></div>'+timerBar()+playersList()+center()+reactionBar()+hand()+specialButtons()+doubleActions()+controls()+historyList():result())+roomExitFooter()+'</div>'}
 async function copyInvite(){if(!state)return;const url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('초대 주소를 복사했어요.')}catch{prompt('초대 주소를 복사하세요.',url)}}
 function leaveRoom(){
  if(!state||!session||pending)return;
@@ -431,7 +451,7 @@ function leaveRoom(){
  if(confirm(message))invoke('leave');
 }
 async function boot(){if(session){await refresh();if(session)connect()}else render();}
-boot();setInterval(()=>{if(session&&!document.hidden)refresh()},8000);document.addEventListener('visibilitychange',()=>{
+boot();setInterval(updateTimers,200);setInterval(()=>{if(session&&!document.hidden)refresh()},8000);document.addEventListener('visibilitychange',()=>{
  if(!document.hidden)refresh();
  else clearTurnAnnouncement();
 });
