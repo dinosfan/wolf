@@ -211,3 +211,13 @@ select.field{appearance:auto;color:#152134;background:#e9f0f7;border:2px solid #
 .special-armed{background:linear-gradient(140deg,#405b39,#1c433b)!important;border:2px solid #abd993!important;box-shadow:0 0 0 2px #abd9932d,0 4px 14px #0005}
 .special-armed strong{color:#ecffcf}
 .special-armed small{color:#c5f4cb}
+
+/* 2.4: timed-mode countdown and brief opening redeal window */
+.game-clock-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;margin:10px 0;border:1px solid #b6974e;background:#332e23;border-radius:14px;font-size:14px;font-weight:700}
+.game-clock-bar strong{font-size:24px;font-variant-numeric:tabular-nums;color:#ffdd8b;white-space:nowrap}
+.game-clock-bar strong.clock-urgent,.opening-countdown.clock-urgent{color:#ff7f83}
+.opening-panel{text-align:center;border-color:#bfa464;background:linear-gradient(160deg,#303e4d,#1d3043)}
+.opening-panel h2{margin-top:15px}
+.opening-countdown{font-size:48px;font-weight:950;line-height:1.2;color:#ffe096;margin:14px 0;font-variant-numeric:tabular-nums}
+.opening-panel button{min-height:54px;font-size:16px}
+@media(max-width:400px){.game-clock-bar{padding:11px;gap:6px;font-size:12px}.game-clock-bar strong{font-size:21px}.opening-countdown{font-size:42px}}
