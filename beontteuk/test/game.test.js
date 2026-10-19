@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const http=require('node:http');
-const {createApp,handle,ROOMS,makeDeck,isMatch,TOPICS}=require('../server');
+const {createApp,handle,ROOMS,makeDeck,isMatch,TOPICS,drawCard,resolveDuel,scheduleBot}=require('../server');
 
 function players(num=3,cards=60) {
  const host=handle('create',{name:'호스트',seats:num,cards});
@@ -127,4 +127,93 @@ test('인원별/카드별 24회 랜덤 게임 완주 (교착·잘못된 카드 �
   assert.equal(room.deck.length,0);
   ROOMS.delete(room.code);
  }
+});
+
+
+test('연습봇: 방장만 추가/제거, 자리 제한, 가짜 접속, 단독 시작',()=>{
+ const host=handle('create',{name:'혼자',seats:3,cards:60});
+ const room=ROOMS.get(host.code);room.players[0].online=true;
+ const guest=handle('join',{code:host.code,name:'친구'});
+ assert.throws(()=>handle('addBot',{...guest,count:1}),/방장/);
+ handle('leave',guest);
+ assert.deepEqual(handle('addBot',{...host,count:2}),{ok:true});
+ const state=handle('state',host);
+ assert.equal(state.players.length,3);
+ assert.ok(state.players.slice(1).every(p=>p.isBot&&p.online&&p.ready));
+ assert.ok(state.players.every(p=>p.token===undefined));
+ assert.throws(()=>handle('addBot',{...host,count:1}),/자리가 부족/);
+ assert.throws(()=>handle('removeBot',{...host,botId:host.playerId}),/해당 봇/);
+ const botId=room.players[1].id;
+ handle('removeBot',{...host,botId});assert.equal(room.players.length,2);
+ handle('addBot',{...host,count:1});
+ handle('start',host);assert.equal(room.phase,'playing');
+ assert.throws(()=>handle('addBot',{...host,count:1}),/대기실/);
+ assert.throws(()=>handle('removeBot',{...host,botId:room.players[1].id}),/대기실/);
+ const bot=room.players.find(p=>p.isBot);
+ assert.throws(()=>handle('draw',{code:room.code,playerId:bot.id,token:'wrong'}),/유효하지/);
+ if(room.botTimer)clearTimeout(room.botTimer);
+ ROOMS.delete(room.code);
+});
+
+test('연습봇: 봇 차례/봇끼리 판정 포함 게임 완주 및 재대결 준비',()=>{
+ const host=handle('create',{name:'혼자',seats:6,cards:60});
+ const room=ROOMS.get(host.code);room.players[0].online=true;
+ handle('addBot',{...host,count:2});handle('start',host);
+ let turns=0,botTurns=0,duels=0,bothBots=0;
+ while(room.phase!=='finished'&&turns++<400){
+   if(room.phase==='playing') {
+     const p=room.players[room.turnIndex];
+     if(p.isBot)botTurns++;
+     drawCard(room,p);
+   } else if(room.phase==='duel') {
+     const d=room.duel,a=room.players.find(p=>p.id===d.aId),b=room.players.find(p=>p.id===d.bId);
+     if(a.isBot&&b.isBot)bothBots++;
+     resolveDuel(room,d.aId);duels++;
+   } else assert.fail('알 수 없는 phase');
+ }
+ assert.equal(room.phase,'finished');
+ assert.ok(botTurns>10);
+ assert.ok(duels>0);
+ assert.equal(room.players.reduce((sum,p)=>sum+p.score,0),duels);
+ handle('restart',host);
+ assert.equal(room.phase,'lobby');
+ assert.ok(room.players.every(p=>p.ready));
+ handle('start',host);assert.equal(room.phase,'playing');
+ if(room.botTimer)clearTimeout(room.botTimer);
+ ROOMS.delete(room.code);
+});
+
+test('연습봇: 실제 타이머로 봇 턴 자동 공개, 봇 vs 봇 대결 자동 승자',async()=>{
+ const host=handle('create',{name:'혼자',seats:3,cards:60});
+ const room=ROOMS.get(host.code);room.players[0].online=true;
+ handle('addBot',{...host,count:2});handle('start',host);
+ room.deck=[{id:'c1',kind:'normal',symbol:1,topic:'과일'}, {id:'c2',kind:'normal',symbol:2,topic:'채소'}, {id:'c3',kind:'normal',symbol:3,topic:'나라'}];
+ handle('draw',host); // 첫 장 정상 공개
+ assert.equal(room.phase,'playing');
+ assert.equal(room.turnIndex,1);
+ await new Promise(resolve=>setTimeout(resolve,1000));
+ assert.equal(room.players[1].playPile.length,1);
+ assert.equal(room.turnIndex,2);
+ // 봇끼리 동일한 심볼을 강제로 만들고 대결 자동 결과 확인
+ if(room.botTimer)clearTimeout(room.botTimer);
+ room.phase='duel';room.players[2].playPile=[{id:'forced',kind:'normal',symbol:room.players[1].playPile[0].symbol,topic:'영화'}];
+ room.duel={aId:room.players[1].id,bId:room.players[2].id,index:123,startedAt:Date.now()};
+ scheduleBot(room);
+ await new Promise(resolve=>setTimeout(resolve,1350));
+ assert.equal(room.players[1].score+room.players[2].score,1);
+ assert.notEqual(room.duel?.index,123);
+ if(room.botTimer)clearTimeout(room.botTimer);
+ ROOMS.delete(room.code);
+});
+
+test('연습봇: 방장이 나가면 사람이 승계하고 봇만 남으면 방 제거',()=>{
+ const host=handle('create',{name:'사람1',seats:4,cards:60});
+ const room=ROOMS.get(host.code);
+ handle('addBot',{...host,count:2});
+ const guest=handle('join',{code:host.code,name:'사람2'});
+ handle('leave',host);
+ assert.equal(room.hostId,guest.playerId);
+ assert.equal(room.players.find(p=>p.id===guest.playerId).ready,true);
+ handle('leave',guest);
+ assert.equal(ROOMS.has(host.code),false);
 });
