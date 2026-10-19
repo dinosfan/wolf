@@ -8,7 +8,7 @@ const B=require('./bots');
 const S=require('./special');
 const rooms=new Map();
 const DEFAULT_ROUNDS=5;
-// The official set has 18 cards; this game clearly labels its 17 verified-card adaptation.
+// Complete 18-card expansion includes the 3-second opening New Beginning card.
 const rand=n=>crypto.randomInt(n);
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 function code(){return Array.from({length:5},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rand(32)]).join('');}
@@ -16,7 +16,7 @@ function assert(ok,msg){if(!ok)throw Error(msg);}
 function room(s){const r=rooms.get(String(s||'').toUpperCase());assert(r,'방을 찾지 못했습니다. 새 방을 만드세요.');return r;}
 function auth(b){const r=room(b.code),p=r.players.find(p=>p.token===b.token);assert(p,'플레이어 인증이 만료되었습니다.');return [r,p];}
 function notify(r){for(const res of [...r.clients]){try{res.write('data: refresh\n\n')}catch{r.clients.delete(res)}}}
-function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();notify(r);scheduleBot(r);}
+function touch(r,msg){if(msg)r.history.push(msg);r.history=r.history.slice(-20);r.updated=Date.now();syncTurnClock(r);notify(r);scheduleBot(r);}
 const REACTIONS=['😂','🔥','😭','⏰','😎','😱'];
 function emitFx(r,type,seat,details={}){
  const event={id:++r.fxSeq,type,seat,ts:Date.now(),round:r.round,...details};
@@ -73,12 +73,52 @@ function scheduleBot(r){
   }
  },750);
 }
+function expireTurn(r){
+ if(!r.timed||r.stage!=='playing'||!r.turnDeadline)return;
+ if(Date.now()<r.turnDeadline){
+  if(!r.turnTimer)r.turnTimer=setTimeout(()=>{r.turnTimer=null;expireTurn(r)},Math.max(1,r.turnDeadline-Date.now()));
+  return;
+ }
+ const seat=r.turn,p=r.players[seat];
+ if(r.turnTimer){clearTimeout(r.turnTimer);r.turnTimer=null;}
+ r.clockSeat=null;r.turnDeadline=null;
+ emitFx(r,'pass',seat);
+ if(r.trick){
+  r.passes++;
+  if(r.passes>=r.size-1){
+   const last=r.trick.by;r.turn=last;r.leader=last;r.trick=null;r.passes=0;
+  }else r.turn=(seat+1)%r.size;
+ }else{
+  // Empty table: rotate the lead without forcibly submitting a tile.
+  r.turn=(seat+1)%r.size;
+ }
+ applySkippedTurn(r);
+ touch(r,p.name+'님이 60초 시간 초과로 자동 패스했습니다.');
+}
+function syncTurnClock(r){
+ if(r.stage!=='playing'||!r.timed){
+  if(r.turnTimer){clearTimeout(r.turnTimer);r.turnTimer=null;}
+  r.clockSeat=null;r.clockRound=null;r.turnDeadline=null;return;
+ }
+ if(r.turnDeadline&&r.clockSeat===r.turn&&r.clockRound===r.round)return;
+ if(r.turnTimer){clearTimeout(r.turnTimer);r.turnTimer=null;}
+ r.clockSeat=r.turn;r.clockRound=r.round;r.turnDeadline=Date.now()+60000;
+ r.turnTimer=setTimeout(()=>{r.turnTimer=null;expireTurn(r)},60000);
+}
+function finishOpening(r){
+ if(r.stage!=='opening')return;
+ if(r.openingTimer){clearTimeout(r.openingTimer);r.openingTimer=null;}
+ r.openingDeadline=null;r.stage='playing';
+ touch(r,'새로운 시작 사용 가능 시간이 종료됐습니다. 이제 타일을 내세요.');
+}
 function stopRoomTimers(r){
  if(r.botTimer){clearTimeout(r.botTimer);r.botTimer=null;}
  if(r.settleTimer){clearTimeout(r.settleTimer);r.settleTimer=null;}
+ if(r.openingTimer){clearTimeout(r.openingTimer);r.openingTimer=null;}
+ if(r.turnTimer){clearTimeout(r.turnTimer);r.turnTimer=null;}
 }
 function publicState(r,p){
- return {code:r.code,stage:r.stage,round:r.round,maxRounds:r.maxRounds,mode:r.mode,expansionAvailable:false,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
+ return {code:r.code,stage:r.stage,round:r.round,maxRounds:r.maxRounds,mode:r.mode,expansionAvailable:true,timed:!!r.timed,turnDeadline:r.turnDeadline||null,openingDeadline:r.openingDeadline||null,seat:p.seat,size:r.size,tilesPerPlayer:r.size===4?13:r.size===6?10:12,maxNum:r.maxNum,
  isHost:p.token===r.hostToken,
  specialCards:S.publicCards(r,p),usedSpecial:!!p.usedSpecial,armedScore:p.armedScore||null,lastSettlementCard:p.lastSettlementCard||null,fairGame:!!r.fairGame,skipSeat:r.skipSeat??null,
  settlement:r.stage==='settlement'?{done:r.players.map(q=>!!q.settled),deadline:r.settleEnds,winner:r.winner}:null,
@@ -87,17 +127,27 @@ function publicState(r,p){
  trick:r.trick?{by:r.trick.by,ids:r.trick.ids,name:r.trick.ev.name,joker:r.trick.joker||null}:null,
  history:r.history,results:r.results,winner:r.winner,winnerName:r.winnerName||null};
 }
-function begin(r){
- if(r.mode==='official'&&r.round===0)S.deal(r,shuffle);
- r.players.forEach(p=>{p.usedSpecial=false;p.settled=false;p.armedScore=null;p.lastSettlementCard=null});r.fairGame=false;r.skipSeat=null;
+function dealTiles(r){
  const deck=shuffle(Array.from({length:r.maxNum*4},(_,i)=>i));
  const per=r.size===4?13:r.size===6?10:12;
  r.players.forEach((p,i)=>{p.hand=R.sortTiles(deck.slice(i*per,(i+1)*per),r.maxNum);p.ready=false;});
- const p=r.players.find(x=>x.hand.includes((3-1)*4+0));
- r.turn=p.seat;r.leader=p.seat;r.trick=null;r.passes=0;r.round++;r.stage='playing';r.results=null;r.winner=null;
- r.winnerName=null;
+ const first=r.players.find(x=>x.hand.includes((3-1)*4+0));
+ r.turn=first.seat;r.leader=first.seat;r.trick=null;r.passes=0;
+}
+function begin(r){
+ if(r.mode==='official'&&r.round===0)S.deal(r,shuffle);
+ r.players.forEach(p=>{p.usedSpecial=false;p.settled=false;p.armedScore=null;p.lastSettlementCard=null});r.fairGame=false;r.skipSeat=null;
+ r.round++;r.results=null;r.winner=null;r.winnerName=null;
+ dealTiles(r);
  r.history=[r.players[r.turn].name+'님이 구름 3을 가져 선이 됐습니다.'];
- emitFx(r,'round',p.seat);touch(r);
+ const hasOpening=r.mode==='official'&&r.round===1&&
+  r.players.some(p=>!p.isBot&&S.available(r,p,'newBeginning'));
+ if(hasOpening){
+  r.stage='opening';r.openingDeadline=Date.now()+3000;
+  r.openingTimer=setTimeout(()=>finishOpening(r),3000);
+  r.history.push('새로운 시작 카드 사용 대기: 패 분배 직후 3초');
+ }else {r.stage='playing';r.openingDeadline=null;}
+ emitFx(r,'round',r.turn);touch(r);
 }
 function finalizeRound(r){
  if(r.stage!=='settlement')return;
@@ -152,20 +202,24 @@ function applySkippedTurn(r){
 
 function action(b){
  const [r,p]=auth(b),host=()=>assert(p.token===r.hostToken,'방장만 할 수 있어요.');
+ if(r.stage==='playing'&&r.timed&&r.turnDeadline&&Date.now()>=r.turnDeadline&&
+   ['play','pass','useSpecial'].includes(b.type)){
+  expireTurn(r);throw Error('60초가 지나 자동 패스되었습니다.');
+ }
  const next=i=>(i+1)%r.size;
  if(b.type==='configure'){
   host();assert(r.stage==='lobby','대기실에서만 경기 설정을 바꿀 수 있어요.');
-  const size=Number(b.size),maxRounds=Number(b.maxRounds),mode=String(b.mode||'');
+  const size=Number(b.size),maxRounds=Number(b.maxRounds),mode=String(b.mode||''),timed=b.timed===true;
   assert(Number.isInteger(size)&&size>=3&&size<=6,'인원은 3~6명으로 설정하세요.');
   assert([3,5].includes(maxRounds),'라운드는 3 또는 5만 선택할 수 있어요.');
   assert(['basic','official'].includes(mode),'기본 또는 공식 확장 중 선택하세요.');
   assert(mode!=='official'||size<=5,'공식 확장 확인판은 3~5명만 지원합니다.');
   const humans=r.players.filter(q=>!q.isBot).length;
   assert(size>=humans,'입장한 사람 수보다 작게 설정할 수 없어요.');
-  const changed=size!==r.size||maxRounds!==r.maxRounds||mode!==r.mode;
+  const changed=size!==r.size||maxRounds!==r.maxRounds||mode!==r.mode||timed!==!!r.timed;
   while(r.players.length>size){const idx=r.players.findLastIndex(q=>q.isBot);assert(idx!==-1,'인원 변경을 할 수 없어요.');r.players.splice(idx,1);}
   r.players.forEach((q,i)=>{q.seat=i;if(changed)q.ready=!!q.isBot});
-  r.size=size;r.maxNum=size===3?9:size===4?13:15;r.maxRounds=maxRounds;r.mode=mode;
+  r.size=size;r.maxNum=size===3?9:size===4?13:15;r.maxRounds=maxRounds;r.mode=mode;r.timed=timed;
   touch(r,changed?'방장이 설정을 변경했어요. 모두 다시 준비해 주세요.':null);
  }else if(b.type==='armScore'){
   assert(r.mode==='official'&&r.stage==='playing'&&!p.isBot,'경기 중 사람 플레이어만 정산 카드를 예약할 수 있어요.');
@@ -179,7 +233,16 @@ function action(b){
   }
  }else if(b.type==='useSpecial'){
   assert(r.mode==='official','기본판에서는 특수카드를 사용할 수 없어요.');
-  S.useTurn(r,p,b,{rand,touch,emitFx,scheduleBot,scoring,applySkippedTurn});applySkippedTurn(r);
+  if(String(b.card)==='newBeginning'){
+   assert(r.stage==='opening'&&r.round===1&&r.openingDeadline&&Date.now()<r.openingDeadline,'패를 받은 직후 3초 안에만 새로운 시작을 쓸 수 있어요.');
+   assert(!p.isBot,'사람 플레이어만 직접 사용할 수 있어요.');
+   S.spend(r,p,'newBeginning');
+   if(r.openingTimer){clearTimeout(r.openingTimer);r.openingTimer=null;}
+   r.openingDeadline=null;
+   dealTiles(r);r.stage='playing';
+   emitFx(r,'round',r.turn);
+   touch(r,p.name+'님이 [새로운 시작]을 사용해 모든 타일을 다시 나눴어요!');
+  }else {S.useTurn(r,p,b,{rand,touch,emitFx,scheduleBot,scoring,applySkippedTurn});applySkippedTurn(r);}
  }else if(b.type==='settleCard'){
   assert(r.mode==='official','기본판에서는 사용할 수 없어요.');
   S.useSettlement(r,p,String(b.card||''));touch(r,p.name+'님이 정산 특수카드를 선택했어요.');
@@ -291,6 +354,7 @@ function action(b){
   if(r.stage==='settlement'&&r.players.every(q=>q.settled))finalizeRound(r);
   return {left:true};
  }else assert(false,'잘못된 요청입니다.');
+ syncTurnClock(r);notify(r);scheduleBot(r);
  return publicState(r,p);
 }
 function practiceSize(b){return b.practice===true?Number(b.size??4):4;}
@@ -310,7 +374,7 @@ const server=http.createServer(async(req,res)=>{
    const b=await data(req),name=String(b.name||'').trim().slice(0,14),size=practiceSize(b),practice=b.practice===true;
    assert(name,'닉네임을 적어 주세요.');assert(Number.isInteger(size)&&size>=3&&size<=6,'게임 인원은 3~6명만 가능합니다.');let c=code();while(rooms.has(c))c=code();
    const p={seat:0,name,token:crypto.randomUUID(),ready:false,hand:[],chips:64,special:[],usedSpecial:false,settled:false};
-   const r={code:c,size,maxNum:size===3?9:size===4?13:15,maxRounds:DEFAULT_ROUNDS,mode:'basic',settleCards:[],skipSeat:null,fairGame:false,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],fxSeq:0,fxEvents:[],updated:Date.now()};
+   const r={code:c,size,maxNum:size===3?9:size===4?13:15,maxRounds:DEFAULT_ROUNDS,mode:'basic',timed:false,settleCards:[],skipSeat:null,fairGame:false,players:[p],hostToken:p.token,stage:'lobby',round:0,clients:new Set(),trick:null,history:[],fxSeq:0,fxEvents:[],updated:Date.now()};
    rooms.set(c,r);if(practice){fillBots(r);begin(r);}return json(res,200,{code:c,token:p.token,state:publicState(r,p)});
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
