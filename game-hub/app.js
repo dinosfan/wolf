@@ -1,5 +1,6 @@
 'use strict';
 const GAMES=[
+ {id:'memory-poker',title:'기억 포커',short:'20초의 기억으로 최고의 족보를!',desc:'16장의 카드 위치를 20초간 외우고, 공용 카드 3장과 기억한 2장으로 최강의 포커 족보를 만들어! 친구와 2인 실시간 대결.',url:'https://memory-poker-friends-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','기억력','카드','포커'],theme:'night',emoji:'🃏',motif:'♠️',stamp:'NEW'},
  {id:'beontteuk',title:'번뜩!',short:'같은 기호가 보이면 먼저 외쳐!',desc:'한자리에 모인 친구들이 각자 휴대폰으로 카드를 공개하고, 같은 기호가 뜨면 상대 카드의 주제에 맞는 말을 먼저 외쳐 승리하는 순발력 파티게임.',url:'https://beontteuk-party-2026.onrender.com',min:3,max:8,category:'board',tags:['순발력','파티','단어','실시간'],theme:'yellow',emoji:'⚡',motif:'💬',stamp:'NEW'},
   {id:'mound-vs-plate',title:'마운드 VS 타석',short:'한 구 승부에서 상대의 수를 읽어라!',desc:'투수는 구종과 코스를 선택하고 타자는 궤적을 보고 스윙! 1·3이닝 친구 대전과 봇 연습이 가능한 야구 심리전.',url:'https://mound-vs-plate-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','야구','심리전','봇'],theme:'night',emoji:'⚾',motif:'🏟️',stamp:'NEW'},
  {id:'battleline',title:'배틀라인',short:'아홉 전선에서 벌어지는 전략 대결!',desc:'9개의 깃발을 놓고 카드 조합으로 맞붙는 2인 온라인 게임. 기본 병력전과 전술전 중 선택해서 플레이!',url:'https://battleline-mobile-2026.onrender.com',min:2,max:2,category:'board',tags:['2인 전용','전략','카드','전술'],theme:'dawn',emoji:'⚔️',motif:'🚩',stamp:'NEW'},
