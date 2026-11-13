@@ -2,10 +2,10 @@
   "name": "memory-poker-friends",
   "version": "1.0.0",
   "private": true,
-  "description": "2-player real-time memory poker",
+  "description": "2-player live memory poker",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
+    "start": "node --test test/game.test.js && node server.js",
+    "test": "node --test test/game.test.js"
   },
   "engines": {
     "node": ">=20"
