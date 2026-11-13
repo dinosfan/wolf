@@ -51,7 +51,7 @@ function updatePhase(room) {
 function start(room) {
  const d=deck();
  room.board=d.slice(0,16);room.community=d.slice(16,19);
- room.choices={};room.outcome=null;room.round++;room.phase='memorize';room.endsAt=now()+20000;
+ room.choices={};room.flips={};room.outcome=null;room.round++;room.phase='memorize';room.endsAt=now()+20000;
 }
 function resolve(room) {
  const result=room.players.map(p=>{
@@ -72,6 +72,7 @@ function snapshot(room,player) {
    board:showBoard?room.board:null,
    community:room.phase==='lobby'||room.phase==='memorize'?null:room.community,
    ownPick:room.choices[player.id]||null,
+   ownFlips:room.phase==='pick'?(room.flips[player.id]||[]).map(i=>({position:i,card:room.board[i]})):[],
    outcome:room.phase==='result'?room.outcome:null
  };
 }
@@ -86,7 +87,7 @@ async function api(req,res,url){
   const nick=String(body.nick||'').trim().slice(0,12);
   if(!nick)return error(res,400,'닉네임을 입력하세요.');
   let code;do{code=randomCode()}while(rooms.has(code));
-  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],choices:{},outcome:null,created:now()};
+  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],choices:{},flips:{},outcome:null,created:now()};
   rooms.set(code,room);return json(res,200,{code,token});
  }
  if(url.pathname==='/api/join'){
@@ -108,10 +109,26 @@ async function api(req,res,url){
   if(!['lobby','result'].includes(room.phase))return error(res,409,'현재는 시작할 수 없어요.');
   start(room);return json(res,200,{ok:true});
  }
+ if(url.pathname==='/api/flip'){
+  const {room,player}=auth(body);updatePhase(room);
+  if(room.phase!=='pick')return error(res,409,'지금은 카드를 뒤집을 수 없어요.');
+  if(room.choices[player.id])return error(res,409,'이미 카드 두 장을 골랐어요.');
+  const i=body.position;
+  if(!Number.isInteger(i)||i<0||i>15)return error(res,400,'올바른 카드를 선택해 주세요.');
+  const flips=room.flips[player.id]||(room.flips[player.id]=[]);
+  if(flips.includes(i))return json(res,200,{ok:true});
+  if(flips.length>=2)return error(res,409,'두 장까지만 선택할 수 있어요.');
+  flips.push(i);
+  if(flips.length===2){
+   room.choices[player.id]=flips.slice();
+   if(room.players.length===2&&room.players.every(p=>room.choices[p.id]))resolve(room);
+  }
+  return json(res,200,{ok:true});
+ }
  if(url.pathname==='/api/pick'){
   const {room,player}=auth(body);updatePhase(room);
   if(room.phase!=='pick')return error(res,409,'아직 선택할 수 없어요.');
-  if(room.choices[player.id])return error(res,409,'이미 선택을 확정했어요.');
+  if(room.choices[player.id]||(room.flips[player.id]||[]).length)return error(res,409,'이미 카드를 뒤집어 선택했어요.');
   const a=body.positions;
   if(!Array.isArray(a)||a.length!==2||a.some(i=>!Number.isInteger(i)||i<0||i>15)||a[0]===a[1])return error(res,400,'서로 다른 카드 두 장을 선택하세요.');
   room.choices[player.id]=a;
