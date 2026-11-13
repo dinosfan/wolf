@@ -45,6 +45,8 @@ test('online flow: room, join, 20s, same two positions, tie, rematch',async()=>{
   const p1=await api('create',{nick:'하나'});
   const p2=await api('join',{nick:'둘',code:p1.code});
   await api('start',{code:p1.code,token:p1.token});
+  const ownerState=await api('state',{code:p1.code,token:p1.token},'GET');
+  assert.notEqual(ownerState.me,p1.token,'public player IDs must not expose secret tokens');
   const before=await api('state',{code:p1.code,token:p2.token},'GET');
   assert.equal(before.phase,'memorize');
   assert.equal(before.board.length,16);
@@ -54,7 +56,7 @@ test('online flow: room, join, 20s, same two positions, tie, rematch',async()=>{
   assert.equal(hidden.phase,'pick');assert.equal(hidden.board,null);
   await api('pick',{code:p1.code,token:p1.token,positions:[0,1]});
   const pending=await api('state',{code:p1.code,token:p2.token},'GET');
-  assert.equal(pending.players.find(p=>p.id===p1.token).picked,true);
+  assert.equal(pending.players.find(p=>p.id===ownerState.me).picked,true);
   await api('pick',{code:p1.code,token:p2.token,positions:[0,1]});
   const end=await api('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(end.phase,'result');assert.equal(end.outcome.winner,null);
