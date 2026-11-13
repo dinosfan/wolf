@@ -32,7 +32,7 @@ test('round timer reveals exactly 16 while memorizing and hides after 20s',()=>{
  const hidden=snapshot(room,room.players[0]);
  assert.equal(hidden.phase,'pick');assert.equal(hidden.board,null);assert.equal(hidden.community.length,3);
 });
-test('online flow: room, join, 20s, same two positions, tie, rematch',async()=>{
+test('online flow: flip cards twice, prevent peeking, same positions tie, rematch',async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const realNow=Date.now;
  const base='http://127.0.0.1:'+server.address().port;
@@ -54,10 +54,21 @@ test('online flow: room, join, 20s, same two positions, tie, rematch',async()=>{
   Date.now=()=>deadline+1;
   const hidden=await api('state',{code:p1.code,token:p2.token},'GET');
   assert.equal(hidden.phase,'pick');assert.equal(hidden.board,null);
-  await api('pick',{code:p1.code,token:p1.token,positions:[0,1]});
+  await api('flip',{code:p1.code,token:p1.token,position:0});
+  const oneFlip=await api('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(oneFlip.ownFlips.length,1);
+  assert.deepEqual(oneFlip.ownFlips[0].card,before.board[0]);
+  const otherView=await api('state',{code:p1.code,token:p2.token},'GET');
+  assert.equal(otherView.ownFlips.length,0,'opponent may not see another player flipped cards');
+  assert.equal(otherView.board,null);
+  await api('flip',{code:p1.code,token:p1.token,position:1});
   const pending=await api('state',{code:p1.code,token:p2.token},'GET');
   assert.equal(pending.players.find(p=>p.id===ownerState.me).picked,true);
-  await api('pick',{code:p1.code,token:p2.token,positions:[0,1]});
+  assert.equal(pending.phase,'pick');
+  const rejectThird=await fetch(base+'/api/flip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:p1.code,token:p1.token,position:2})});
+  assert.equal(rejectThird.status,409,'flipped cards cannot be swapped or peeked');
+  await api('flip',{code:p1.code,token:p2.token,position:0});
+  await api('flip',{code:p1.code,token:p2.token,position:1});
   const end=await api('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(end.phase,'result');assert.equal(end.outcome.winner,null);
   assert.deepEqual(end.players.map(p=>p.score),[0,0]);
