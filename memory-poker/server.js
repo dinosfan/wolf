@@ -86,7 +86,7 @@ async function api(req,res,url){
   const nick=String(body.nick||'').trim().slice(0,12);
   if(!nick)return error(res,400,'닉네임을 입력하세요.');
   let code;do{code=randomCode()}while(rooms.has(code));
-  const token=crypto.randomUUID(),room={code,host:token,players:[{id:token,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],choices:{},outcome:null,created:now()};
+  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],choices:{},outcome:null,created:now()};
   rooms.set(code,room);return json(res,200,{code,token});
  }
  if(url.pathname==='/api/join'){
@@ -95,7 +95,7 @@ async function api(req,res,url){
   if(room.players.length>=2)return error(res,409,'이미 두 명이 참가한 방이에요.');
   if(room.phase!=='lobby')return error(res,409,'게임이 진행 중이에요.');
   const nick=String(body.nick||'').trim().slice(0,12);if(!nick)return error(res,400,'닉네임을 입력하세요.');
-  const token=crypto.randomUUID();room.players.push({id:token,token,nick,score:0,lastSeen:now()});
+  const token=crypto.randomUUID(),id=crypto.randomUUID();room.players.push({id,token,nick,score:0,lastSeen:now()});
   return json(res,200,{code:room.code,token});
  }
  if(url.pathname==='/api/state'){
