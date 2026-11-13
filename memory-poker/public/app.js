@@ -49,7 +49,7 @@ function resultView(){
  const winner=o.winner?state.players.find(p=>p.id===o.winner):null;
  const meWon=o.winner===state.me;
  return '<section class="result center"><div class="eyebrow">ROUND '+state.round+' RESULT</div><h2>'+(!winner?'무승부!':meWon?'승리! ✦':'이번 라운드는 패배')+'</h2><p>'+(!winner?'포커 족보와 숫자가 완전히 같아요.':safe(winner.nick)+' 님의 족보가 더 강했어요.')+'</p></section>'+
- '<div class="result-grid">'+o.players.map(x=>{const p=state.players.find(z=>z.id===x.id);return '<section class="hand-result'+(x.id===o.winner?' winner':'')+'"><h3>'+safe(p.nick)+(x.id===o.winner?' 👑':'')+'</h3><div class="mini-hand">'+x.hand.map(c=>card(c)).join('')+'</div><div class="rankname">'+safe(x.rank.name)+'</div><small style="color:var(--muted)">선택한 카드 2장 + 공용 카드 3장+'</small></section>';}).join('')+'</div>'+
+ '<div class="result-grid">'+o.players.map(x=>{const p=state.players.find(z=>z.id===x.id);return '<section class="hand-result'+(x.id===o.winner?' winner':'')+'"><h3>'+safe(p.nick)+(x.id===o.winner?' 👑':'')+'</h3><div class="mini-hand">'+x.hand.map(c=>card(c)).join('')+'</div><div class="rankname">'+safe(x.rank.name)+'</div><small style="color:var(--muted)">선택한 카드 2장 + 공용 카드 3장</small></section>';}).join('')+'</div>'+
  '<div class="action-bar">'+(state.me===state.host?'<button type="button" class="btn btn-primary" data-action="start">다음 라운드 시작 →</button>':'<p>방장이 다음 라운드를 시작할 수 있어요.</p>')+'</div>'+
  '<div class="status"><p>선택 위치 테두리: <span style="color:var(--gold)">노랑 = 나</span> · <span style="color:var(--blue)">파랑 = 친구</span></p></div>'+board();
 }
