@@ -132,7 +132,7 @@ async function api(req,res,url){
   rooms.set(code,room);return json(res,200,{code,token});
  }
  if(url.pathname==='/api/join'){
-  if(!/^\\d{3}$/.test(String(body.code||'')))return error(res,400,'숫자 3자리 방 코드를 입력하세요.');
+  if(!/^\d{3}$/.test(String(body.code||'')))return error(res,400,'숫자 3자리 방 코드를 입력하세요.');
   const room=getRoom(body.code);if(!room)return error(res,404,'방 코드를 찾을 수 없어요.');
   if(body.token){const old=room.players.find(p=>p.token===body.token);if(old){old.lastSeen=now();return json(res,200,{code:room.code,token:old.token});}}
   if(room.players.length>=2)return error(res,409,'이미 두 명이 참가한 방이에요.');
