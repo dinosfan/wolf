@@ -9,7 +9,7 @@ const rooms = new Map();
 const suits = ['S','H','D','C'];
 const names = ['하이카드','원페어','투페어','트리플','스트레이트','플러시','풀하우스','포카드','스트레이트 플러시'];
 const now = () => Date.now();
-const randomCode = () => Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[crypto.randomInt(32)]).join('');
+const randomCode = () => String(crypto.randomInt(100,1000));
 function deck() {
  const arr=[]; for(const s of suits)for(let n=2;n<=14;n++)arr.push({s,n});
  for(let i=arr.length-1;i>0;i--){const j=crypto.randomInt(i+1);[arr[i],arr[j]]=[arr[j],arr[i]];}
@@ -45,34 +45,74 @@ function auth(body) {
  if(!player)throw {status:403,message:'방에 다시 입장해 주세요.'};
  player.lastSeen=now();return {room,player};
 }
-function updatePhase(room) {
- if(room.phase==='memorize'&&now()>=room.endsAt)room.phase='pick';
-}
-function start(room) {
- const d=deck();
- room.board=d.slice(0,16);room.community=d.slice(16,19);
- room.choices={};room.flips={};room.outcome=null;room.round++;room.phase='memorize';room.endsAt=now()+20000;
-}
-function resolve(room) {
+function evaluateOutcome(room) {
  const result=room.players.map(p=>{
-  const positions=room.choices[p.id],hand=[...positions.map(i=>room.board[i]),...room.community];
-  return {id:p.id,positions,hand,rank:evaluate(hand)};
+  const positions=room.choices[p.id];
+  const hand=[...positions.map(i=>room.board[i]),...room.community];
+  return {id:p.id,positions,hand,rank:evaluate(hand),autoPositions:room.autoPicks[p.id]||[]};
  });
  const order=cmp(result[0].rank.value,result[1].rank.value);
  const winner=order===0?null:(order>0?result[0].id:result[1].id);
- if(winner)room.players.find(p=>p.id===winner).score++;
- room.outcome={winner,players:result};room.phase='result';
+ return {winner,players:result};
+}
+function fillChoices(room) {
+ room.choices={};room.autoPicks={};
+ for(const p of room.players) {
+  const chosen=(room.selections[p.id]||[]).slice(0,2);
+  const auto=[];
+  while(chosen.length<2){
+   const available=Array.from({length:16},(_,i)=>i).filter(i=>!chosen.includes(i));
+   const pick=available[crypto.randomInt(available.length)];
+   chosen.push(pick);auto.push(pick);
+  }
+  room.choices[p.id]=chosen;room.autoPicks[p.id]=auto;
+ }
+}
+function updatePhase(room) {
+ const t=now();
+ if(room.phase==='memorize'&&t>=room.endsAt){
+  room.phase='pick';room.endsAt+=10000;
+ }
+ if(room.phase==='pick'&&t>=room.endsAt){
+  fillChoices(room);
+  room.phase='reveal';room.endsAt+=3200;
+ }
+ if(room.phase==='reveal'&&t>=room.endsAt){
+  room.outcome=evaluateOutcome(room);
+  if(room.outcome.winner){
+   const p=room.players.find(p=>p.id===room.outcome.winner);
+   p.score++;
+   if(p.score>=3)room.matchWinner=p.id;
+  }
+  room.phase='result';room.endsAt=0;
+ }
+}
+function start(room) {
+ if(room.matchWinner){
+  room.players.forEach(p=>p.score=0);
+  room.round=0;room.matchWinner=null;
+ }
+ const d=deck();
+ room.board=d.slice(0,16);room.community=d.slice(16,19);
+ room.selections={};room.choices={};room.autoPicks={};room.outcome=null;
+ room.round++;room.phase='memorize';room.endsAt=now()+20000;
 }
 function snapshot(room,player) {
  updatePhase(room);
  const showBoard=room.phase==='memorize'||room.phase==='result';
+ const revealCards=room.phase==='reveal'?[...new Set(room.players.flatMap(p=>room.choices[p.id]||[]))].map(i=>({
+  position:i,card:room.board[i],
+  owners:room.players.filter(p=>(room.choices[p.id]||[]).includes(i)).map(p=>p.id)
+ })):null;
  return {serverNow:now(),code:room.code,me:player.id,host:room.host,
    phase:room.phase,round:room.round,endsAt:room.endsAt,
-   players:room.players.map(p=>({id:p.id,nick:p.nick,score:p.score,online:now()-p.lastSeen<14000,picked:!!room.choices[p.id]})),
+   matchWinner:room.phase==='result'?room.matchWinner:null,
+   players:room.players.map(p=>({id:p.id,nick:p.nick,score:p.score,online:now()-p.lastSeen<14000,
+    picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id]})),
    board:showBoard?room.board:null,
    community:room.phase==='lobby'||room.phase==='memorize'?null:room.community,
-   ownPick:room.choices[player.id]||null,
-   ownFlips:room.phase==='pick'?(room.flips[player.id]||[]).map(i=>({position:i,card:room.board[i]})):[],
+   ownSelection:room.phase==='pick'?(room.selections[player.id]||[]):[],
+   revealCards,
    outcome:room.phase==='result'?room.outcome:null
  };
 }
@@ -86,11 +126,13 @@ async function api(req,res,url){
  if(url.pathname==='/api/create'){
   const nick=String(body.nick||'').trim().slice(0,12);
   if(!nick)return error(res,400,'닉네임을 입력하세요.');
+  if(rooms.size>=900)return error(res,503,'현재 입장 가능한 방이 가득 찼어요.');
   let code;do{code=randomCode()}while(rooms.has(code));
-  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],choices:{},flips:{},outcome:null,created:now()};
+  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],selections:{},choices:{},autoPicks:{},matchWinner:null,outcome:null,created:now()};
   rooms.set(code,room);return json(res,200,{code,token});
  }
  if(url.pathname==='/api/join'){
+  if(!/^\\d{3}$/.test(String(body.code||'')))return error(res,400,'숫자 3자리 방 코드를 입력하세요.');
   const room=getRoom(body.code);if(!room)return error(res,404,'방 코드를 찾을 수 없어요.');
   if(body.token){const old=room.players.find(p=>p.token===body.token);if(old){old.lastSeen=now();return json(res,200,{code:room.code,token:old.token});}}
   if(room.players.length>=2)return error(res,409,'이미 두 명이 참가한 방이에요.');
@@ -109,30 +151,16 @@ async function api(req,res,url){
   if(!['lobby','result'].includes(room.phase))return error(res,409,'현재는 시작할 수 없어요.');
   start(room);return json(res,200,{ok:true});
  }
- if(url.pathname==='/api/flip'){
+ if(url.pathname==='/api/select'){
   const {room,player}=auth(body);updatePhase(room);
-  if(room.phase!=='pick')return error(res,409,'지금은 카드를 뒤집을 수 없어요.');
-  if(room.choices[player.id])return error(res,409,'이미 카드 두 장을 골랐어요.');
+  if(room.phase!=='pick')return error(res,409,'카드 선택 시간이 종료됐어요.');
   const i=body.position;
-  if(!Number.isInteger(i)||i<0||i>15)return error(res,400,'올바른 카드를 선택해 주세요.');
-  const flips=room.flips[player.id]||(room.flips[player.id]=[]);
-  if(flips.includes(i))return json(res,200,{ok:true});
-  if(flips.length>=2)return error(res,409,'두 장까지만 선택할 수 있어요.');
-  flips.push(i);
-  if(flips.length===2){
-   room.choices[player.id]=flips.slice();
-   if(room.players.length===2&&room.players.every(p=>room.choices[p.id]))resolve(room);
-  }
-  return json(res,200,{ok:true});
- }
- if(url.pathname==='/api/pick'){
-  const {room,player}=auth(body);updatePhase(room);
-  if(room.phase!=='pick')return error(res,409,'아직 선택할 수 없어요.');
-  if(room.choices[player.id]||(room.flips[player.id]||[]).length)return error(res,409,'이미 카드를 뒤집어 선택했어요.');
-  const a=body.positions;
-  if(!Array.isArray(a)||a.length!==2||a.some(i=>!Number.isInteger(i)||i<0||i>15)||a[0]===a[1])return error(res,400,'서로 다른 카드 두 장을 선택하세요.');
-  room.choices[player.id]=a;
-  if(room.players.length===2&&room.players.every(p=>room.choices[p.id]))resolve(room);
+  if(!Number.isInteger(i)||i<0||i>15)return error(res,400,'올바른 카드를 선택하세요.');
+  const picks=room.selections[player.id]||(room.selections[player.id]=[]);
+  const index=picks.indexOf(i);
+  if(index>=0)picks.splice(index,1);
+  else if(picks.length<2)picks.push(i);
+  else return error(res,409,'카드는 최대 두 장까지 선택할 수 있어요. 다른 카드를 해제해 주세요.');
   return json(res,200,{ok:true});
  }
  return error(res,404,'잘못된 요청이에요.');
@@ -147,6 +175,7 @@ function staticFile(req,res,url){
    res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'public, max-age=60','X-Content-Type-Options':'nosniff'});res.end(buf);
  });
 }
+setInterval(()=>{for(const room of rooms.values())updatePhase(room);},250).unref();
 setInterval(()=>{for(const [code,room] of rooms)if(now()-Math.max(room.created,...room.players.map(p=>p.lastSeen))>3*3600000)rooms.delete(code);},600000).unref();
 const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,'http://localhost');
@@ -159,4 +188,4 @@ const server=http.createServer(async(req,res)=>{
  return staticFile(req,res,url);
 });
 if(require.main===module)server.listen(PORT,'0.0.0.0',()=>console.log('Memory Poker on '+PORT));
-module.exports={server,evaluate,cmp,deck,start,snapshot,updatePhase};
+module.exports={server,evaluate,cmp,deck,start,snapshot,updatePhase,fillChoices};
