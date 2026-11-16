@@ -19,7 +19,7 @@ test('poker ranking respects wheel, full house and kickers',()=>{
  const b=evaluate([card(8,'D'),card(8,'C'),card(5,'D'),card(3,'S'),card(2,'H')]);
  assert.ok(cmp(b.value,a.value)>0);
 });
-test('20-second memorization is followed by exactly 10-second hidden selection',()=>{
+test('20-second memorization is followed by exactly 15-second hidden selection',()=>{
  const fake={code:'123',host:'p1',players:[{id:'p1',token:'t1',score:0,nick:'A',lastSeen:Date.now()},{id:'p2',token:'t2',score:0,nick:'B',lastSeen:Date.now()}],round:0,phase:'lobby',choices:{}};
  start(fake);
  assert.equal(fake.board.length,16);
@@ -34,7 +34,7 @@ test('20-second memorization is followed by exactly 10-second hidden selection',
   assert.equal(hidden.phase,'pick');
   assert.equal(hidden.board,null);
   assert.equal(hidden.revealCards,null);
-  assert.equal(hidden.endsAt-first.endsAt,10000);
+  assert.equal(hidden.endsAt-first.endsAt,15000);
   assert.equal(hidden.community.length,3);
  }finally{Date.now=oldNow;}
 });
@@ -61,7 +61,7 @@ test('two-player flow: 3-digit codes, hidden picks, reveal, tie, timeout auto-pi
   assert.equal(pick.phase,'pick');
   assert.equal(pick.board,null);
   assert.deepEqual(pick.ownSelection,[]);
-  assert.equal(pick.endsAt-before.endsAt,10000);
+  assert.equal(pick.endsAt-before.endsAt,15000);
   await call('select',{code:p1.code,token:p1.token,position:0});
   pick=await call('state',{code:p1.code,token:p1.token},'GET');
   assert.deepEqual(pick.ownSelection,[0]);
@@ -80,7 +80,16 @@ test('two-player flow: 3-digit codes, hidden picks, reveal, tie, timeout auto-pi
   pick=await call('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(pick.phase,'pick','early double selections must not reveal any card');
   assert.deepEqual(pick.players.map(x=>x.score),[0,0]);
-  Date.now=()=>pick.endsAt+1;
+  // With 3 seconds remaining, every selected card must stay hidden.
+  Date.now=()=>pick.endsAt-3000;
+  const threeLeft=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(threeLeft.phase,'pick','must not auto-pick 3 seconds early');
+  assert.equal(threeLeft.revealCards,null);
+  assert.deepEqual(threeLeft.ownSelection,[0,1]);
+  Date.now=()=>pick.endsAt-1;
+  const oneMsLeft=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(oneMsLeft.phase,'pick','must not auto-pick even 1ms early');
+  Date.now=()=>pick.endsAt;
   const revealed=await call('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(revealed.phase,'reveal');
   assert.equal(revealed.board,null);
@@ -95,9 +104,22 @@ test('two-player flow: 3-digit codes, hidden picks, reveal, tie, timeout auto-pi
   assert.equal(result.outcome.winner,null);
   assert.deepEqual(result.players.map(x=>x.score),[0,0]);
   Date.now=clock;
-  await call('start',{code:p1.code,token:p1.token});
+  await call('start',{code:p1.code,token:p1.token},'POST',409);
+  await call('ready',{code:p1.code,token:p1.token});
+  const oneReady=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(oneReady.phase,'result');
+  assert.equal(oneReady.players.find(x=>x.id===oneReady.me).ready,true);
+  await call('ready',{code:p1.code,token:p2.token});
+  const countdown=await call('state',{code:p1.code,token:p2.token},'GET');
+  assert.equal(countdown.phase,'countdown');
+  assert.deepEqual(countdown.players.map(x=>x.score),[0,0]);
+  Date.now=()=>countdown.endsAt-1;
+  const beforeGo=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(beforeGo.phase,'countdown');
+  Date.now=()=>countdown.endsAt;
   const again=await call('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(again.round,2);
+  assert.equal(again.phase,'memorize');
   Date.now=()=>again.endsAt+1;
   const pick2=await call('state',{code:p1.code,token:p2.token},'GET');
   await call('select',{code:p1.code,token:p1.token,position:4});
@@ -112,20 +134,37 @@ test('two-player flow: 3-digit codes, hidden picks, reveal, tie, timeout auto-pi
   assert.equal(end2.outcome.players.find(p=>p.id!==before.me).autoPositions.length,2);
  }finally{Date.now=clock;await new Promise(resolve=>server.close(resolve));}
 });
-test('first to 3 wins ends match; next start resets scores',async()=>{
+test('first to 3 wins ends match; both ready and countdown reset scores',async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const base='http://127.0.0.1:'+server.address().port;
  const oldNow=Date.now;
- const call=async(route,body={},method='POST')=>{
+ const call=async(route,body={},method='POST',status=200)=>{
   const r=await fetch(base+'/api/'+route+(method==='GET'?'?'+new URLSearchParams(body).toString():''),
    {method,headers:{'Content-Type':'application/json'},body:method==='POST'?JSON.stringify(body):undefined});
-  const j=await r.json();assert.equal(r.status,200,JSON.stringify(j));return j;
+  const j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;
  };
  try {
   const p1=await call('create',{nick:'Winner'});
   const p2=await call('join',{nick:'Loser',code:p1.code});
   for(let win=1;win<=3;win++){
-   await call('start',{code:p1.code,token:p1.token});
+   if(win===1) await call('start',{code:p1.code,token:p1.token});
+   else {
+    await call('start',{code:p1.code,token:p1.token},'POST',409);
+    await call('ready',{code:p1.code,token:p1.token});
+    const alone=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(alone.phase,'result');
+    assert.equal(alone.players.find(x=>x.id===alone.me).ready,true);
+    await call('ready',{code:p1.code,token:p2.token});
+    const countdown=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(countdown.phase,'countdown');
+    Date.now=()=>countdown.endsAt-1;
+    const stillWaiting=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(stillWaiting.phase,'countdown');
+    Date.now=()=>countdown.endsAt;
+    const launched=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(launched.phase,'memorize');
+    Date.now=oldNow;
+   }
    const before=await call('state',{code:p1.code,token:p1.token},'GET');
    // The public community is revealed at the start of the picking window.
    Date.now=()=>before.endsAt+1;
@@ -149,7 +188,14 @@ test('first to 3 wins ends match; next start resets scores',async()=>{
    assert.equal(!!result.matchWinner,win===3);
    Date.now=oldNow;
   }
-  await call('start',{code:p1.code,token:p1.token});
+  await call('start',{code:p1.code,token:p1.token},'POST',409);
+  await call('ready',{code:p1.code,token:p1.token});
+  let waiting=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(waiting.phase,'result');
+  await call('ready',{code:p1.code,token:p2.token});
+  const countdown=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(countdown.phase,'countdown');
+  Date.now=()=>countdown.endsAt;
   const reset=await call('state',{code:p1.code,token:p1.token},'GET');
   assert.equal(reset.round,1);
   assert.deepEqual(reset.players.map(x=>x.score),[0,0]);
