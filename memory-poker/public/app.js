@@ -5,7 +5,7 @@ const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const suit={S:'♠',H:'♥',D:'♦',C:'♣'};
 const cardName=n=>n===14?'A':n===13?'K':n===12?'Q':n===11?'J':String(n);
 const positions='ABCDEFGHIJKLMNOP'.split('');
-let code='',token='',state=null,offset=0,phase='',requesting=false,choosing=false,lastStateKey='',timerId=0;
+let code='',token='',state=null,offset=0,phase='',requesting=false,choosing=false,lastStateKey='',timerId=0,stateRevision=0;
 const savedNick=localStorage.getItem('memoryPokerNick')||'';
 const queryCode=new URLSearchParams(location.search).get('room')||'';
 function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(timerId);timerId=setTimeout(()=>el.classList.remove('show'),3200);}
@@ -25,7 +25,7 @@ function landing(){
  '<p class="rules"><b>16장 카드 20초 암기</b> → <b>공용 카드 3장 공개</b> → <b>15초간 뒷면 2장 선택</b> → <b>선택 카드 공개</b> → 포커 판정! 먼저 <b>3승</b>을 달성하면 승리!<br>베팅 없이 진행하며, 동일한 위치를 두 사람 모두 선택할 수 있어요.</p>';
 }
 function playerBox(p){
- return '<div class="player'+(p.id===state.me?' me':'')+'"><div class="top"><span>'+(p.id===state.host?'👑 방장':'♣ 참가자')+(p.id===state.me?' · 나':'')+'</span><span>'+(!p.online?'재접속 중':state.phase==='result'?(p.ready?'✓ 준비 완료':'준비 대기'):p.picked?'선택 완료':'온라인')+'</span></div><div class="name">'+safe(p.nick)+'</div><div class="score">'+p.score+' <small style="color:var(--muted);font-size:11px">/ 3승</small></div></div>';
+ return '<div class="player'+(p.id===state.me?' me':'')+'"><div class="top"><span>'+(p.id===state.host?'👑 방장':'♣ 참가자')+(p.id===state.me?' · 나':'')+'</span><span>'+(!p.online?'재접속 중':['lobby','result','countdown'].includes(state.phase)?(p.ready?'✓ 준비 완료':'준비 대기'):p.picked?'선택 완료':'온라인')+'</span></div><div class="name">'+safe(p.nick)+'</div><div class="score">'+p.score+' <small style="color:var(--muted);font-size:11px">/ 3승</small></div></div>';
 }
 function board(){
  const full=state.phase==='memorize'||state.phase==='result';
@@ -59,10 +59,10 @@ function resultView(){
   :!winner?'무승부는 승수에 포함되지 않아요.':safe(winner.nick)+' 님의 족보가 더 강했어요.';
  return '<section class="result center"><div class="eyebrow">'+(matchOver?'BEST OF FIVE · FINAL':'ROUND '+state.round+' RESULT')+'</div><h2>'+headline+'</h2><p>'+description+'</p></section>'+
  '<div class="result-grid">'+o.players.map(x=>{const p=state.players.find(z=>z.id===x.id);return '<section class="hand-result'+(x.id===o.winner?' winner':'')+'"><h3>'+safe(p.nick)+(x.id===o.winner?' 👑':'')+'</h3><div class="mini-hand">'+x.hand.map(c=>card(c)).join('')+'</div><div class="rankname">'+safe(x.rank.name)+'</div><small style="color:var(--muted)">선택한 카드 2장 + 공용 카드 3장'+(x.autoPositions.length?' · 자동 선택 '+x.autoPositions.length+'장':'')+'</small></section>';}).join('')+'</div>'+
- '<div class="action-bar">'+(state.players.find(p=>p.id===state.me)?.ready
-  ?'<p class="picked-note">✓ 준비 완료! 친구가 준비를 누르길 기다리는 중…</p>'
-  :'<button type="button" class="btn btn-primary" data-action="ready">준비 완료 · '+(matchOver?'새 경기':'다음 판')+' 시작 대기</button>')+
-  '<p>두 사람 모두 준비하면 3 · 2 · 1 카운트다운 후 다음 판이 시작돼요.</p></div>'+
+ '<div class="action-bar"><p class="picked-note">준비 <strong>'+state.players.filter(p=>p.ready).length+' / 2명</strong></p>'+
+ (state.players.find(p=>p.id===state.me)?.ready?'<p>✓ 준비 완료! 상대방 준비 대기 중…</p>':
+ '<button type="button" class="btn btn-primary" data-action="ready">'+(matchOver?'새 경기':'다음 판')+' 준비하기</button>')+
+ '<p>두 사람 모두 준비하면 3 · 2 · 1 후 시작해요.</p></div>'+
  '<div class="status"><p>선택 위치 테두리: <span style="color:var(--gold)">노랑 = 나</span> · <span style="color:var(--blue)">파랑 = 친구</span></p></div>'+board();
 }
 function render(){
@@ -70,9 +70,11 @@ function render(){
  const players=state.players.map(playerBox).join('')+(state.players.length<2?'<div class="player"><div class="top">대기 중</div><div class="name" style="color:var(--muted)">친구를 기다리는 중…</div></div>':'');
  let content='<div class="roomtop"><div><h1>♠ 기억 포커</h1><p>라운드 '+state.round+' · 5판 3선승제</p></div><div class="roomcode"><small>방 코드</small><strong>'+safe(state.code)+'</strong><button data-action="copy">초대 링크 복사</button></div></div><div class="players">'+players+'</div>';
  if(state.phase==='lobby'){
-  content+='<section class="panel waiting center"><div class="panel-icon">♠ ♥ ♦ ♣</div><h2>승부를 준비하세요!</h2><p>친구에게 링크나 방 코드를 보내면 바로 같은 방에 들어올 수 있어요.<br>두 명이 모이면 방장이 게임을 시작합니다.</p>'+
-  (state.me===state.host?'<button class="btn btn-primary" data-action="start" '+(state.players.length!==2?'disabled':'')+'>20초 암기 시작 →</button>':'<p>방장이 시작 버튼을 누르길 기다리고 있어요.</p>')+
-  '<div class="small-note">20초 암기 → 15초 선택(앞면 비공개) → 선택 카드 공개 → 결과 공개. 다음 판은 모두 준비 후 3·2·1 카운트다운!</div></section>';
+  content+='<section class="panel waiting center"><div class="panel-icon">♠ ♥ ♦ ♣</div><h2>두 사람 모두 준비하면 시작!</h2><p>초대 링크 또는 3자리 코드를 친구에게 보내세요.</p>'+
+  '<p class="picked-note">입장 <strong>'+state.players.length+' / 2명</strong> · 준비 <strong>'+state.players.filter(p=>p.ready).length+' / 2명</strong></p>'+
+  (state.players.find(p=>p.id===state.me)?.ready?'<p>✓ 준비 완료! 상대방을 기다리는 중…</p>':
+   '<button class="btn btn-primary" data-action="ready" '+(state.players.length!==2?'disabled':'')+'>준비하기</button>')+
+  '<div class="small-note">두 명 준비 → 3 · 2 · 1 → 20초 암기 → 15초 선택 → 카드 공개</div></section>';
  } else if(state.phase==='memorize') {
   content+='<section class="status"><span class="phase">MEMORIZE · 암기 단계</span><h2>카드의 숫자와 위치를 기억하세요</h2><p>시간이 지나면 모든 카드가 가려집니다.</p><div class="timer" id="timer"></div></section>'+board()+'<div class="action-bar"><p>친구와 같은 16장을 보고 있어요. 4×4 배열에서 카드의 숫자와 문양을 기억하세요.</p></div>';
  } else if(state.phase==='pick') {
@@ -84,7 +86,7 @@ function render(){
    '<div class="action-bar"><p>금색 테두리는 나, 파란 테두리는 친구가 고른 카드예요.</p></div>';
  } else if(state.phase==='result') {content+=resultView();}
  else if(state.phase==='countdown'){
-  content+='<section class="panel waiting center"><span class="phase eyebrow">NEXT ROUND</span><h2>두 사람 모두 준비 완료!</h2><p>카드가 공개되기 전 카운트다운이 진행돼요.</p><div id="countdown-number" class="countdown-number" aria-live="off">3</div><p>숫자가 끝나면 20초 암기 시작!</p></section>';
+  content+='<section class="panel waiting center"><span class="phase eyebrow">'+(state.round===0?'GAME START':'NEXT ROUND')+'</span><h2>두 사람 모두 준비 완료!</h2><p>카드가 공개되기 전 카운트다운이 진행돼요.</p><div id="countdown-number" class="countdown-number" aria-live="off">3</div><p>숫자가 끝나면 20초 암기 시작!</p></section>';
  }
  mount.innerHTML=content;
  updateCountdown();
@@ -109,10 +111,12 @@ async function refresh(){
  try{
   // Midpoint time synchronization prevents the server deadline arriving while the
   // browser's displayed timer still shows several seconds remaining.
-  const sentAt=Date.now();
+  const currentRevision=stateRevision;
+   const sentAt=Date.now();
   const s=await get('/api/state?code='+encodeURIComponent(code)+'&token='+encodeURIComponent(token));
   const receivedAt=Date.now();
-  offset=s.serverNow-(sentAt+receivedAt)/2;
+  if(currentRevision!==stateRevision)return;
+   offset=s.serverNow-(sentAt+receivedAt)/2;
   if(s.phase!==phase)phase=s.phase;
   const key=JSON.stringify({...s,serverNow:undefined});
   const changed=key!==lastStateKey;
@@ -155,11 +159,17 @@ document.addEventListener('click',async e=>{
   try{await navigator.clipboard.writeText(inviteUrl());toast('초대 링크 복사 완료!');}
   catch{prompt('아래 링크를 복사해 친구에게 보내세요',inviteUrl());}return;
  }
- if(action==='start'||action==='ready'){
+ if(action==='ready'){
   btn.disabled=true;
-  try{await post(action,{code,token});await refresh();}
-  catch(err){toast(err.message);btn.disabled=false;}
+  try{
+   const response=await post('ready',{code,token});
+   if(response.state){
+    stateRevision++;offset=response.state.serverNow-Date.now();
+    state=response.state;phase=state.phase;lastStateKey='';render();
+   }else await refresh();
+  }catch(err){toast(err.message);btn.disabled=false;}
  }
+
 });
 async function boot(){
  const c=String(queryCode).replace(/\D/g,'').slice(0,3);
