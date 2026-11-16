@@ -9,6 +9,9 @@ const rooms = new Map();
 const suits = ['S','H','D','C'];
 const names = ['하이카드','원페어','투페어','트리플','스트레이트','플러시','풀하우스','포카드','스트레이트 플러시'];
 const now = () => Date.now();
+const MEMORIZE_MS = 20_000;
+const PICK_MS = 15_000;
+const REVEAL_MS = 3_200;
 const randomCode = () => String(crypto.randomInt(100,1000));
 function deck() {
  const arr=[]; for(const s of suits)for(let n=2;n<=14;n++)arr.push({s,n});
@@ -71,11 +74,11 @@ function fillChoices(room) {
 function updatePhase(room) {
  const t=now();
  if(room.phase==='memorize'&&t>=room.endsAt){
-  room.phase='pick';room.endsAt+=10000;
+  room.phase='pick';room.endsAt+=PICK_MS;
  }
  if(room.phase==='pick'&&t>=room.endsAt){
   fillChoices(room);
-  room.phase='reveal';room.endsAt+=3200;
+  room.phase='reveal';room.endsAt+=REVEAL_MS;
  }
  if(room.phase==='reveal'&&t>=room.endsAt){
   room.outcome=evaluateOutcome(room);
@@ -94,8 +97,8 @@ function start(room) {
  }
  const d=deck();
  room.board=d.slice(0,16);room.community=d.slice(16,19);
- room.selections={};room.choices={};room.autoPicks={};room.outcome=null;
- room.round++;room.phase='memorize';room.endsAt=now()+20000;
+ room.selections={};room.choices={};room.autoPicks={};room.ready={};room.outcome=null;
+ room.round++;room.phase='memorize';room.endsAt=now()+MEMORIZE_MS;
 }
 function snapshot(room,player) {
  updatePhase(room);
@@ -108,7 +111,8 @@ function snapshot(room,player) {
    phase:room.phase,round:room.round,endsAt:room.endsAt,
    matchWinner:room.phase==='result'?room.matchWinner:null,
    players:room.players.map(p=>({id:p.id,nick:p.nick,score:p.score,online:now()-p.lastSeen<14000,
-    picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id]})),
+    picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id],
+    ready:room.phase==='result'&&!!room.ready?.[p.id]})),
    board:showBoard?room.board:null,
    community:room.phase==='lobby'||room.phase==='memorize'?null:room.community,
    ownSelection:room.phase==='pick'?(room.selections[player.id]||[]):[],
@@ -128,7 +132,7 @@ async function api(req,res,url){
   if(!nick)return error(res,400,'닉네임을 입력하세요.');
   if(rooms.size>=900)return error(res,503,'현재 입장 가능한 방이 가득 찼어요.');
   let code;do{code=randomCode()}while(rooms.has(code));
-  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],selections:{},choices:{},autoPicks:{},matchWinner:null,outcome:null,created:now()};
+  const token=crypto.randomUUID(),id=crypto.randomUUID(),room={code,host:id,players:[{id,token,nick,score:0,lastSeen:now()}],round:0,phase:'lobby',endsAt:0,board:[],community:[],selections:{},choices:{},autoPicks:{},ready:{},matchWinner:null,outcome:null,created:now()};
   rooms.set(code,room);return json(res,200,{code,token});
  }
  if(url.pathname==='/api/join'){
@@ -148,8 +152,17 @@ async function api(req,res,url){
   const {room,player}=auth(body);
   if(player.id!==room.host)return error(res,403,'방장만 시작할 수 있어요.');
   if(room.players.length!==2)return error(res,409,'친구가 입장해야 시작할 수 있어요.');
-  if(!['lobby','result'].includes(room.phase))return error(res,409,'현재는 시작할 수 없어요.');
+  if(room.phase!=='lobby')return error(res,409,'다음 라운드는 두 사람 모두 준비해야 시작돼요.');
   start(room);return json(res,200,{ok:true});
+ }
+ if(url.pathname==='/api/ready'){
+  const {room,player}=auth(body);
+  updatePhase(room);
+  if(room.phase!=='result')return error(res,409,'결과가 공개된 뒤에 준비할 수 있어요.');
+  room.ready ||= {};
+  room.ready[player.id]=true;
+  if(room.players.length===2&&room.players.every(p=>room.ready[p.id]))start(room);
+  return json(res,200,{ok:true});
  }
  if(url.pathname==='/api/select'){
   const {room,player}=auth(body);updatePhase(room);
