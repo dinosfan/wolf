@@ -198,7 +198,7 @@ function staticFile(req,res,url){
  const file=path.resolve(PUBLIC,'.'+filename);
  if(!file.startsWith(PUBLIC+path.sep))return error(res,403,'접근 불가');
  fs.readFile(file,(err,buf)=>{if(err)return error(res,404,'페이지를 찾을 수 없어요.');
-   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'public, max-age=60','X-Content-Type-Options':'nosniff'});res.end(buf);
+   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':path.extname(file)==='.html'?'no-store':'public, max-age=60','X-Content-Type-Options':'nosniff'});res.end(buf);
  });
 }
 setInterval(()=>{for(const room of rooms.values())updatePhase(room);},250).unref();
