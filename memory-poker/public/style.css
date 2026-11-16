@@ -68,3 +68,32 @@
  text-shadow:0 0 65px #eabc5c66;
  font-variant-numeric:tabular-nums;
 }
+
+
+/* Always-visible ready CTA on both host and guest screens. */
+.ready-dock-spacer{height:155px;pointer-events:none}
+.ready-dock{
+ position:fixed;
+ bottom:calc(12px + env(safe-area-inset-bottom,0px));
+ left:50%;transform:translateX(-50%);
+ z-index:30;
+ width:min(540px,calc(100vw - 24px));
+ border:1px solid #977748;
+ background:linear-gradient(135deg,#254735f8,#10231efb);
+ box-shadow:0 14px 45px #0009;
+ border-radius:17px;
+ padding:13px 16px 12px;
+ display:flex;flex-direction:column;gap:7px;
+ backdrop-filter:blur(15px);
+}
+.ready-dock-status{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.ready-dock-status strong{color:var(--gold);font-size:17px}
+.ready-dock-status span{color:var(--muted);font-size:12px}
+.ready-dock-button{width:100%;min-height:46px;font-size:16px}
+.ready-dock-confirmed{border:1px solid #4b9d78;background:#1e523f;color:#91efbf;text-align:center;border-radius:10px;padding:11px;font-weight:900}
+.ready-dock p{font-size:11px;line-height:1.5;text-align:center;color:var(--muted);margin:1px 0}
+@media(max-width:550px){
+ .ready-dock-spacer{height:155px}
+ .ready-dock{padding:11px 12px}
+ .ready-dock-status span{font-size:11px}
+}
