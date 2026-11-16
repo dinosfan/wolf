@@ -12,6 +12,7 @@ const now = () => Date.now();
 const MEMORIZE_MS = 20_000;
 const PICK_MS = 15_000;
 const REVEAL_MS = 3_200;
+const NEXT_ROUND_COUNTDOWN_MS = 3_000;
 const randomCode = () => String(crypto.randomInt(100,1000));
 function deck() {
  const arr=[]; for(const s of suits)for(let n=2;n<=14;n++)arr.push({s,n});
@@ -73,6 +74,9 @@ function fillChoices(room) {
 }
 function updatePhase(room) {
  const t=now();
+ if(room.phase==='countdown'&&t>=room.endsAt){
+  start(room);
+ }
  if(room.phase==='memorize'&&t>=room.endsAt){
   room.phase='pick';room.endsAt+=PICK_MS;
  }
@@ -114,7 +118,7 @@ function snapshot(room,player) {
     picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id],
     ready:room.phase==='result'&&!!room.ready?.[p.id]})),
    board:showBoard?room.board:null,
-   community:room.phase==='lobby'||room.phase==='memorize'?null:room.community,
+   community:['lobby','memorize','countdown'].includes(room.phase)?null:room.community,
    ownSelection:room.phase==='pick'?(room.selections[player.id]||[]):[],
    revealCards,
    outcome:room.phase==='result'?room.outcome:null
@@ -161,7 +165,9 @@ async function api(req,res,url){
   if(room.phase!=='result')return error(res,409,'결과가 공개된 뒤에 준비할 수 있어요.');
   room.ready ||= {};
   room.ready[player.id]=true;
-  if(room.players.length===2&&room.players.every(p=>room.ready[p.id]))start(room);
+  if(room.players.length===2&&room.players.every(p=>room.ready[p.id])){
+   room.phase='countdown';room.endsAt=now()+NEXT_ROUND_COUNTDOWN_MS;
+  }
   return json(res,200,{ok:true});
  }
  if(url.pathname==='/api/select'){
