@@ -123,6 +123,7 @@ function snapshot(room,player) {
  })):null;
  return {serverNow:now(),code:room.code,me:player.id,host:room.host,
    phase:room.phase,round:room.round,endsAt:room.endsAt,
+   readyCount:room.players.filter(p=>!!room.ready?.[p.id]).length,
    matchWinner:room.phase==='result'?room.matchWinner:null,
    players:room.players.map(p=>({id:p.id,nick:p.nick,score:p.score,online:now()-p.lastSeen<14000,
     picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id],
@@ -171,7 +172,8 @@ async function api(req,res,url){
   updatePhase(room);
   if(room.phase==='countdown'||room.phase==='memorize')return json(res,200,{ok:true,state:snapshot(room,player)});
   if(!['lobby','result'].includes(room.phase))return error(res,409,'게임 대기 또는 결과 공개 후 준비할 수 있어요.');
-  if(room.players.length!==2)return error(res,409,'두 명이 입장해야 준비할 수 있어요.');
+  // Allow either player to prepare before the opponent finishes joining.
+  // The countdown still requires exactly two distinct player IDs.
   room.ready ||= {};
   room.ready[player.id]=true;
   updatePhase(room);
@@ -198,7 +200,7 @@ function staticFile(req,res,url){
  const file=path.resolve(PUBLIC,'.'+filename);
  if(!file.startsWith(PUBLIC+path.sep))return error(res,403,'접근 불가');
  fs.readFile(file,(err,buf)=>{if(err)return error(res,404,'페이지를 찾을 수 없어요.');
-   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':path.extname(file)==='.html'?'no-store':'public, max-age=60','X-Content-Type-Options':'nosniff'});res.end(buf);
+   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(buf);
  });
 }
 setInterval(()=>{for(const room of rooms.values())updatePhase(room);},250).unref();
