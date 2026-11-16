@@ -75,7 +75,7 @@ function resultView(){
   :!winner?'무승부는 승수에 포함되지 않아요.':safe(winner.nick)+' 님의 족보가 더 강했어요.';
  return '<section class="result center"><div class="eyebrow">'+(matchOver?'BEST OF FIVE · FINAL':'ROUND '+state.round+' RESULT')+'</div><h2>'+headline+'</h2><p>'+description+'</p></section>'+
  '<div class="result-grid">'+o.players.map(x=>{const p=state.players.find(z=>z.id===x.id);return '<section class="hand-result'+(x.id===o.winner?' winner':'')+'"><h3>'+safe(p.nick)+(x.id===o.winner?' 👑':'')+'</h3><div class="mini-hand">'+x.hand.map(c=>card(c)).join('')+'</div><div class="rankname">'+safe(x.rank.name)+'</div><small style="color:var(--muted)">선택한 카드 2장 + 공용 카드 3장'+(x.autoPositions.length?' · 자동 선택 '+x.autoPositions.length+'장':'')+'</small></section>';}).join('')+'</div>'+
- '<div class="status"><p>선택 위치 테두리: '<div class="status"><p>선택 위치 테두리: <span style="color:var(--gold)">노랑 = 나</span> · <span style="color:var(--blue)">파랑 = 친구</span></p></div>'+board();
+ '<div class="status"><p>선택 위치 테두리: <span style="color:var(--gold)">노랑 = 나</span> · <span style="color:var(--blue)">파랑 = 친구</span></p></div>'+board();
 }
 function render(){
  if(!state)return landing();
