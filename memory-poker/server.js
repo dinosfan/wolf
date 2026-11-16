@@ -74,6 +74,13 @@ function fillChoices(room) {
 }
 function updatePhase(room) {
  const t=now();
+ // Always reconcile readiness on the server, even if the response to the
+ // second player's ready request was delayed or retried.
+ if(['lobby','result'].includes(room.phase)&&room.players.length===2&&
+    room.players.every(p=>room.ready?.[p.id])){
+  room.phase='countdown';room.endsAt=t+NEXT_ROUND_COUNTDOWN_MS;
+ }
+
  if(room.phase==='countdown'&&t>=room.endsAt){
   start(room);
  }
@@ -95,6 +102,8 @@ function updatePhase(room) {
  }
 }
 function start(room) {
+ // Never allow the new round to begin without two ready players.
+ if(room.players.length!==2||!room.players.every(p=>room.ready?.[p.id]))return false;
  if(room.matchWinner){
   room.players.forEach(p=>p.score=0);
   room.round=0;room.matchWinner=null;
@@ -103,6 +112,7 @@ function start(room) {
  room.board=d.slice(0,16);room.community=d.slice(16,19);
  room.selections={};room.choices={};room.autoPicks={};room.ready={};room.outcome=null;
  room.round++;room.phase='memorize';room.endsAt=now()+MEMORIZE_MS;
+ return true;
 }
 function snapshot(room,player) {
  updatePhase(room);
@@ -116,7 +126,7 @@ function snapshot(room,player) {
    matchWinner:room.phase==='result'?room.matchWinner:null,
    players:room.players.map(p=>({id:p.id,nick:p.nick,score:p.score,online:now()-p.lastSeen<14000,
     picked:room.phase==='pick'?(room.selections[p.id]||[]).length===2:!!room.choices[p.id],
-    ready:room.phase==='result'&&!!room.ready?.[p.id]})),
+    ready:['lobby','result','countdown'].includes(room.phase)&&!!room.ready?.[p.id]})),
    board:showBoard?room.board:null,
    community:['lobby','memorize','countdown'].includes(room.phase)?null:room.community,
    ownSelection:room.phase==='pick'?(room.selections[player.id]||[]):[],
@@ -154,21 +164,18 @@ async function api(req,res,url){
  }
  if(url.pathname==='/api/start'){
   const {room,player}=auth(body);
-  if(player.id!==room.host)return error(res,403,'방장만 시작할 수 있어요.');
-  if(room.players.length!==2)return error(res,409,'친구가 입장해야 시작할 수 있어요.');
-  if(room.phase!=='lobby')return error(res,409,'다음 라운드는 두 사람 모두 준비해야 시작돼요.');
-  start(room);return json(res,200,{ok:true});
+  return error(res,409,'두 사람 모두 준비 버튼을 눌러야 게임을 시작할 수 있어요.');
  }
  if(url.pathname==='/api/ready'){
   const {room,player}=auth(body);
   updatePhase(room);
-  if(room.phase!=='result')return error(res,409,'결과가 공개된 뒤에 준비할 수 있어요.');
+  if(room.phase==='countdown'||room.phase==='memorize')return json(res,200,{ok:true,state:snapshot(room,player)});
+  if(!['lobby','result'].includes(room.phase))return error(res,409,'게임 대기 또는 결과 공개 후 준비할 수 있어요.');
+  if(room.players.length!==2)return error(res,409,'두 명이 입장해야 준비할 수 있어요.');
   room.ready ||= {};
   room.ready[player.id]=true;
-  if(room.players.length===2&&room.players.every(p=>room.ready[p.id])){
-   room.phase='countdown';room.endsAt=now()+NEXT_ROUND_COUNTDOWN_MS;
-  }
-  return json(res,200,{ok:true});
+  updatePhase(room);
+  return json(res,200,{ok:true,state:snapshot(room,player)});
  }
  if(url.pathname==='/api/select'){
   const {room,player}=auth(body);updatePhase(room);
