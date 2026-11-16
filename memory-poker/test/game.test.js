@@ -20,7 +20,7 @@ test('poker ranking respects wheel, full house and kickers',()=>{
  assert.ok(cmp(b.value,a.value)>0);
 });
 test('20-second memorization is followed by exactly 15-second hidden selection',()=>{
- const fake={code:'123',host:'p1',players:[{id:'p1',token:'t1',score:0,nick:'A',lastSeen:Date.now()},{id:'p2',token:'t2',score:0,nick:'B',lastSeen:Date.now()}],round:0,phase:'lobby',choices:{}};
+ const fake={code:'123',host:'p1',players:[{id:'p1',token:'t1',score:0,nick:'A',lastSeen:Date.now()},{id:'p2',token:'t2',score:0,nick:'B',lastSeen:Date.now()}],round:0,phase:'lobby',choices:{},ready:{p1:true,p2:true}};
  start(fake);
  assert.equal(fake.board.length,16);
  assert.equal(fake.community.length,3);
@@ -52,8 +52,20 @@ test('two-player flow: 3-digit codes, hidden picks, reveal, tie, timeout auto-pi
   assert.match(p1.code,/^\d{3}$/);
   await call('join',{nick:'B',code:'WRONG'},'POST',400);
   const p2=await call('join',{nick:'B',code:p1.code});
-  await call('start',{code:p1.code,token:p1.token});
+  await call('start',{code:p1.code,token:p1.token},'POST',409);
+  await call('ready',{code:p1.code,token:p1.token});
+  const oneReadyLobby=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(oneReadyLobby.phase,'lobby');
+  assert.deepEqual(oneReadyLobby.players.map(p=>p.ready),[true,false]);
+  const secondReady=await call('ready',{code:p1.code,token:p2.token});
+  assert.equal(secondReady.state.phase,'countdown');
+  const initialCountdown=await call('state',{code:p1.code,token:p2.token},'GET');
+  assert.equal(initialCountdown.phase,'countdown');
+  Date.now=()=>initialCountdown.endsAt-1;
+  assert.equal((await call('state',{code:p1.code,token:p1.token},'GET')).phase,'countdown');
+  Date.now=()=>initialCountdown.endsAt;
   const before=await call('state',{code:p1.code,token:p1.token},'GET');
+  assert.equal(before.phase,'memorize');
   assert.notEqual(before.me,p1.token);
   assert.equal(before.board.length,16);
   Date.now=()=>before.endsAt+1;
@@ -147,7 +159,19 @@ test('first to 3 wins ends match; both ready and countdown reset scores',async()
   const p1=await call('create',{nick:'Winner'});
   const p2=await call('join',{nick:'Loser',code:p1.code});
   for(let win=1;win<=3;win++){
-   if(win===1) await call('start',{code:p1.code,token:p1.token});
+   if(win===1){
+    await call('start',{code:p1.code,token:p1.token},'POST',409);
+    await call('ready',{code:p1.code,token:p1.token});
+    const oneReady=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(oneReady.phase,'lobby');
+    await call('ready',{code:p1.code,token:p2.token});
+    const firstCountdown=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(firstCountdown.phase,'countdown');
+    Date.now=()=>firstCountdown.endsAt;
+    const firstLaunch=await call('state',{code:p1.code,token:p1.token},'GET');
+    assert.equal(firstLaunch.phase,'memorize');
+    Date.now=oldNow;
+   }
    else {
     await call('start',{code:p1.code,token:p1.token},'POST',409);
     await call('ready',{code:p1.code,token:p1.token});
