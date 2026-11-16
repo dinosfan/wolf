@@ -4,8 +4,8 @@
   "private": true,
   "description": "2-player live memory poker",
   "scripts": {
-    "start": "node --test test/game.test.js && node server.js",
-    "test": "node --test test/game.test.js"
+    "start": "node --test test/*.test.js && node server.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=20"
